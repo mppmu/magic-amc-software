@@ -4,7 +4,7 @@
 # Auth: M. Fras, Electronics Division, MPI for Physics, Munich
 # Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
 # Date: 18 Feb 2025
-# Rev.: 21 Feb 2025
+# Rev.: 04 Mar 2025
 #
 # Python script to send a hex command to the AMC test setup to move the motor.
 #
@@ -25,6 +25,7 @@
 
 import argparse
 import sys
+import time
 import serial
 import serial.rs485
 
@@ -203,6 +204,9 @@ except Exception as error:
     print("Error sending data to the serial port {0:s}:".format(serial_device))
     print(error)
     sys.exit(2)
+
+# Wait a while for the answer from the AMC controller.
+time.sleep(0.1)
 
 # Read answer from AMC controller.
 try:
