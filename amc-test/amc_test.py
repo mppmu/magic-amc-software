@@ -4,7 +4,7 @@
 # Auth: M. Fras, Electronics Division, MPI for Physics, Munich
 # Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
 # Date: 18 Feb 2025
-# Rev.: 04 Mar 2025
+# Rev.: 05 Mar 2025
 #
 # Python script to send a hex command to the AMC test setup to move the motor.
 #
@@ -31,7 +31,7 @@ import serial.rs485
 
 
 
-PREFIX_ERROR = "\nERROR: "
+PREFIX_ERROR = "ERROR: "
 
 
 
@@ -43,8 +43,8 @@ parser = argparse.ArgumentParser(description='Send a hexadecimal command string 
 parser.add_argument('-a', '--amc-id', action='store', type=lambda x: int(x,0),
                     dest='amc_id', default=0x65, metavar='AMC_ID',
                     help='AMC ID = address of controller board.')
-parser.add_argument('-b', '--driver-id', action='store', type=lambda x: int(x,0),
-                    dest='driver_id', default=0x00, metavar='DRIVER_ID',
+parser.add_argument('-b', '--sm-driver-id', action='store', type=lambda x: int(x,0),
+                    dest='sm_driver_id', default=0x00, metavar='SM_DRIVER_ID',
                     help='Stepper motor driver ID (0..3).')
 parser.add_argument('-c', '--command', action='store', type=str,
                     dest='amc_cmd', default='0x07', metavar='AMC_COMMAND',
@@ -89,24 +89,24 @@ verbosity = args.verbosity
 # Convert string or int to bytearray.
 def x2bytearray(x):
     if isinstance(x, int):
-        b = x.to_bytes(4, 'little')
+        ba = x.to_bytes(4, 'little')
     elif isinstance(x, str):
-        b = bytearray(map(lambda x: int(x,0), x.split()))
+        ba = bytearray(map(lambda x: int(x,0), x.split()))
     else:
-        b = bytearray()
-    return b
+        ba = bytearray()
+    return ba
 
 # Format a bytearray into a hex string.
-def bytearray2hexstr(b):
-    if len(b) <= 0:
+def bytearray2hexstr(ba):
+    if len(ba) <= 0:
         return ''
-    return ''.join('{:02X} '.format(x) for x in b).rstrip()
+    return ''.join('{:02X} '.format(x) for x in ba).rstrip()
 
 # Format a bytearray into a hex string with leading '0x'.
-def bytearray2hexstr0x(b):
-    if len(b) <= 0:
+def bytearray2hexstr0x(ba):
+    if len(ba) <= 0:
         return ''
-    return ''.join('0x{:02X} '.format(x) for x in b).rstrip()
+    return ''.join('0x{:02X} '.format(x) for x in ba).rstrip()
 
 # Algorithm found here:
 # https://mdfs.net/Info/Comp/Comms/CRC16.htm
@@ -173,7 +173,7 @@ amc_frame = bytearray()
 amc_frame.append(x2bytearray(AMC_FRAME_SD)[0])
 amc_frame.append(x2bytearray(AMC_FRAME_SOH)[0])
 amc_frame.append(x2bytearray(args.amc_id)[0])
-amc_frame.append(x2bytearray(args.driver_id)[0])
+amc_frame.append(x2bytearray(args.sm_driver_id)[0])
 amc_frame.append(x2bytearray(args.pc_id)[0])
 amc_frame.append(len(x2bytearray(args.amc_cmd)) & 0xff)
 amc_frame.extend(x2bytearray(args.amc_cmd))
@@ -210,11 +210,68 @@ time.sleep(0.1)
 
 # Read answer from AMC controller.
 try:
-    ret = ser.read(ser.inWaiting())
+    amc_answer = ser.read(ser.inWaiting())
 except Exception as error:
     print(PREFIX_ERROR, end='')
     print("Error reading data from the serial port {0:s}:".format(serial_device))
     print(error)
     sys.exit(2)
-print("Response from AMC (hex): '{0:s}'".format(bytearray2hexstr(ret)))
+if verbosity >= 1:
+    print("Response from AMC (hex): '{0:s}'".format(bytearray2hexstr(amc_answer)))
+if verbosity >= 2:
+    print()
+
+# Evaluate the answer from the AMC controller.
+for idx, b in enumerate(amc_answer):
+    if idx == 0:        # AMC frame start.
+        if b != AMC_FRAME_SD:
+            print(PREFIX_ERROR, end='')
+            print("Answer from AMC controller does not start with 0x{0:02X}!".format(AMC_FRAME_SD))
+        else:
+            if verbosity >= 2:
+                print("Correct frame start (0x{0:02X}) received from the AMC controller.".format(AMC_FRAME_SD))
+    elif idx == 1:      # ACK or NAK.
+        if b == AMC_FRAME_NAK:
+            print(PREFIX_ERROR, end='')
+            print("NAK received from AMC command!")
+        elif b != AMC_FRAME_ACK:
+            print(PREFIX_ERROR, end='')
+            print("Invalid response from AMC: The second byte is neither ACK (0x{0:02X}) nor NAK (0x{1:02X})!".format(AMC_FRAME_ACK, AMC_FRAME_NAK))
+        else:
+            if verbosity >= 2:
+                print("Correct ACK (0x{0:02X}) received from the AMC controller.".format(AMC_FRAME_ACK))
+    elif idx == 2:      # Host computer ID.
+        if b != x2bytearray(args.pc_id)[0]:
+            print(PREFIX_ERROR, end='')
+            print("Wrong host computer ID received! Expected 0x{0:02X}, got 0x{1:02X}.".format(x2bytearray(args.pc_id)[0], b))
+        else:
+            if verbosity >= 3:
+                print("Correct computer host ID (0x{0:02X}) received from the AMC controller.".format(x2bytearray(args.pc_id)[0]))
+    elif idx == 3:      # AMC ID.
+        if b != x2bytearray(args.amc_id)[0]:
+            print(PREFIX_ERROR, end='')
+            print("Wrong AMC ID received! Expected 0x{0:02X}, got 0x{1:02X}.".format(x2bytearray(args.amc_id)[0], b))
+        else:
+            if verbosity >= 3:
+                print("Correct AMC ID (0x{0:02X}) received from the AMC controller.".format(x2bytearray(args.amc_id)[0]))
+    elif idx == 4:      # Stepper motor driver ID.
+        if b != x2bytearray(args.sm_driver_id)[0]:
+            print(PREFIX_ERROR, end='')
+            print("Wrong stepper motor driver ID received! Expected 0x{0:02X}, got 0x{1:02X}.".format(x2bytearray(args.sm_driver_id)[0], b))
+        else:
+            if verbosity >= 3:
+                print("Correct stepper motor driver ID (0x{0:02X}) received from the AMC controller.".format(x2bytearray(args.sm_driver_id)[0]))
+
+# Check for CRC error.
+if len(amc_answer) > 4:
+    # CRC received with the answer.
+    amc_answer_crc = int.from_bytes(amc_answer[-2:-1]) + (int.from_bytes(amc_answer[-1:]) << 8)
+    # Calculate the CRC of the answer.
+    amc_answer_crc_calc = crc16_xmodem(amc_answer[2:-2])
+    if amc_answer_crc != amc_answer_crc_calc:
+        print(PREFIX_ERROR, end='')
+        print("Wrong CRC received! Expected 0x{0:04X}, got 0x{1:04X}.".format(amc_answer_crc_calc, amc_answer_crc))
+    else:
+        if verbosity >= 3:
+            print("Correct CRC 0x{0:04X} received from the AMC controller.".format(amc_answer_crc))
 
