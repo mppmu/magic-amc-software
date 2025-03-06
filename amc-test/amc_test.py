@@ -4,13 +4,13 @@
 # Auth: M. Fras, Electronics Division, MPI for Physics, Munich
 # Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
 # Date: 18 Feb 2025
-# Rev.: 05 Mar 2025
+# Rev.: 06 Mar 2025
 #
 # Python script to send a hex command to the AMC test setup to move the motor.
 #
 # CAUTION: To be used with the AMC controller firmware V6 (AMContr 2.1.6) only!
 #
-# AMC frame format:
+# AMC frame format from computer to AMC controller:
 # 1. SD byte 0xFB (details unknown).
 # 2. SOH byte 0x01 (details unknown).
 # 3. AMC ID byte.
@@ -19,6 +19,18 @@
 # 6. Data length (1 byte).
 # 7. Command + data bytes (matching the number given as data length in 6.).
 # 8. XModem 16-bit CRC (2 bytes, LSB first, MSB last).
+#
+# AMC frame format from AMC controller to computer:
+# 1.  SD byte 0xFB (details unknown).
+# 2.  ACK (0x85) or NAK (0x15).
+# 3.  Host computer ID byte.
+# 4.  AMC ID byte.
+# 5.  Stepper motor driver ID byte (0..3).
+# 6.  Number of payload bytes (1 byte).
+# 7.  Repeat of command sent from host computer (1 byte).
+# 8.  Two status bytes.
+# 9.  Data bytes.
+# 10. XModem 16-bit CRC (2 bytes, LSB first, MSB last).
 #
 
 
@@ -72,10 +84,15 @@ enable_rs_485 = args.enable_rs_485
 
 # AMC parameters.
 # See section "Protocol constants" in "amc.h" of AMContr firmware V6 (2.1.6).
-AMC_FRAME_SD    = 0XFB
-AMC_FRAME_SOH   = 0X01
-AMC_FRAME_ACK   = 0X85
-AMC_FRAME_NAK   = 0X15
+AMC_FRAME_SD        = 0XFB
+AMC_FRAME_SOH       = 0X01
+AMC_FRAME_ACK       = 0X85
+AMC_FRAME_NAK       = 0X15
+AMC_ANS_HEADER_LEN  = 6         # Fixed header of 6 bytes.
+AMC_ANS_STATUS_LEN  = 2         # 2 status bytes.
+AMC_ANS_CRC_LEN     = 2         # 2 bytes of 16 bit CRC.
+AMC_ANS_ACK_MIN_LEN = 11        # An ACK frame contains at least 11 bytes.
+AMC_ANS_NAK_LEN     = 8         # A NAK frame contains 8 bytes.
 
 # Verbosity.
 verbosity = args.verbosity
@@ -222,6 +239,9 @@ if verbosity >= 2:
     print()
 
 # Evaluate the answer from the AMC controller.
+if len(amc_answer) < AMC_ANS_NAK_LEN:
+    print(PREFIX_ERROR, end='')
+    print("Answer from AMC controller too short! Expected at least {0:d} bytes, got {1:d}!".format(AMC_ANS_NAK_LEN, len(amc_answer)))
 for idx, b in enumerate(amc_answer):
     if idx == 0:        # AMC frame start.
         if b != AMC_FRAME_SD:
@@ -261,9 +281,49 @@ for idx, b in enumerate(amc_answer):
         else:
             if verbosity >= 3:
                 print("Correct stepper motor driver ID (0x{0:02X}) received from the AMC controller.".format(x2bytearray(args.sm_driver_id)[0]))
+    elif idx == 5:      # Number of payload bytes (without CRC).
+        payload_len = b
+        if verbosity >= 3:
+            print("Number of payload bytes (without CRC): {0:d}".format(b))
+    elif idx == 6:      # Repeat command.
+        if b != x2bytearray(args.amc_cmd)[0]:
+            print(PREFIX_ERROR, end='')
+            print("Wrong repeated command received! Expected 0x{0:02X}, got 0x{1:02X}.".format(x2bytearray(args.amc_cmd)[0], b))
+        else:
+            if verbosity >= 3:
+                print("Correct repeated command (0x{0:02X}) received from the AMC controller.".format(x2bytearray(args.amc_cmd)[0]))
+    elif idx == 7:      # Status byte 1. See page 12 of "amc2cmd.pdf" and
+                        # "amc.h" of AMC controller firmware version 2.1.6.
+                        # The information in "amc.h" takes precedence.
+        if verbosity >= 2:
+            print("Status byte 1: 0x{0:02X}".format(b))
+            if b & 0x01: print("    Verges error, execution of command done/tried.")
+            if b & 0x02: print("    Unknown command (inexistent cc).")
+            if b & 0x04: print("    Command rejected, nothing done (e.g. on too early move).")
+            if b & 0x08: print("    Illegal/meaningless first parameter (word).")
+            if b & 0x10: print("    Illegal/meaningless second/other parameter (word).")
+            if b & 0x20: print("    CC and length of frame (number of params) contradicting.")
+            if b & 0x40: print("    CP and length of frame contradicting.")
+            if b & 0x80: print("    Bad driver address.")
+    elif idx == 8:      # Status byte 2. See page 12 of "amc2cmd.pdf" and
+                        # "amc.h" of AMC controller firmware version 2.1.6.
+                        # The information in "amc.h" takes precedence.
+        if verbosity >= 2:
+            print("Status byte 2: 0x{0:02X}".format(b))
+            if b & 0x01: print("    Motor X moving.")
+            if b & 0x02: print("    Motor Y moving.")
+            if b & 0x04: print("    Motor X direction up.")
+            if b & 0x08: print("    Motor Y direction up.")
+            if b & 0x10: print("    Motor X at end switch.")
+            if b & 0x20: print("    Motor Y at end switch.")
+            if b & 0x40: print("    Laser is on.")
+            if b & 0x80: print("    Bad driver card.")
+    elif idx >= 9 and idx < AMC_ANS_HEADER_LEN + payload_len:
+        if verbosity >= 2:
+            print("Data byte: 0x{0:02X}".format(b))
 
 # Check for CRC error.
-if len(amc_answer) > 4:
+if len(amc_answer) == AMC_ANS_HEADER_LEN + payload_len + AMC_ANS_CRC_LEN:
     # CRC received with the answer.
     amc_answer_crc = int.from_bytes(amc_answer[-2:-1]) + (int.from_bytes(amc_answer[-1:]) << 8)
     # Calculate the CRC of the answer.
