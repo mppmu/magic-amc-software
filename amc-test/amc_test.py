@@ -4,7 +4,7 @@
 # Auth: M. Fras, Electronics Division, MPI for Physics, Munich
 # Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
 # Date: 18 Feb 2025
-# Rev.: 13 Mar 2025
+# Rev.: 09 May 2025
 #
 # Python script to send a hex command to the AMC test setup to move the motor.
 #
@@ -58,10 +58,11 @@ parser.add_argument('-a', '--amc-id', action='store', type=lambda x: int(x,0),
 parser.add_argument('-b', '--sm-driver-id', action='store', type=lambda x: int(x,0),
                     dest='sm_driver_id', default=0x00, metavar='SM_DRIVER_ID',
                     help='Stepper motor driver ID (0..3).')
-parser.add_argument('-c', '--command', action='store', type=str,
+parser.add_argument('-c', '--command', action='store', type=lambda s: str(s).lower(),
                     choices=['center', 'move_rel_x', 'move_rel_y',
                              'move_rel_xy', 'move_abs', 'stop',
-                             'reset_box', 'reset_driver', 'status', 'raw'
+                             'reset_box', 'reset_driver', 'status', 'raw',
+                             'scan'
                             ],
                     dest='amc_cmd', default='center',
                     help='Command to be execute on the AMC.')
@@ -82,10 +83,6 @@ parser.add_argument('-v', '--verbosity', action='store', type=int,
                     help='Set the verbosity level. The default is 1.')
 parser.add_argument('remainder', nargs=argparse.REMAINDER)
 args = parser.parse_args()
-
-# Serial device parameters.
-serial_device = args.serial_device
-enable_rs_485 = args.enable_rs_485
 
 
 # AMC parameters.
@@ -136,9 +133,6 @@ AMC_COEFF_VOLT_LOGIC= 6.9 / 2.2 * 1e-3  # Measured with a voltage divider of 4.7
 # Custom parameters.
 STATUS_INCLUDES_HUM_CUR = False # Should the status information include the humidity and the current values,
                                 # which may not work on most or all board?
-
-# Verbosity.
-verbosity = args.verbosity
 
 
 
@@ -199,298 +193,386 @@ def crc16_xmodem(data):
 
 
 #####################################################################
+# AMC frame functions.
+#####################################################################
+
+# Assemble the full AMC frame.
+def amc_frame_assemble(amc_id, sm_driver_id, pc_id, amc_cmd):
+    amc_frame = bytearray()
+    amc_frame.append(x2bytearray(AMC_FRAME_SD)[0])
+    amc_frame.append(x2bytearray(AMC_FRAME_SOH)[0])
+    amc_frame.append(amc_id)
+    amc_frame.append(sm_driver_id)
+    amc_frame.append(pc_id)
+    amc_frame.append(len(amc_cmd) & 0xff)
+    amc_frame.extend(amc_cmd)
+    amc_crc = crc16_xmodem(amc_frame[2:])
+    amc_frame.extend(x2bytearray(amc_crc)[:2])
+    return amc_frame, amc_crc
+
+# Define the binary AMC command and its parameters from the requested command.
+def parse_amc_cmd(amc_cmd, cmd_params):
+    if amc_cmd == 'center':
+        amc_cmd_bin = AMC_CMD_CENTER
+    # Commands with one short signed integer as argument.
+    elif amc_cmd in ['move_rel_x', 'move_rel_y']:
+        if not cmd_params:
+            print(PREFIX_ERROR, end='')
+            print("The number of steps must be specified for the '{0:s}' command!".format(amc_cmd))
+            sys.exit(2)
+        if amc_cmd == 'move_rel_x':
+            amc_cmd_bin = AMC_CMD_MOVE_REL_X
+        else:
+            amc_cmd_bin = AMC_CMD_MOVE_REL_Y
+        amc_cmd_bin.extend(x2bytearray(str2short(cmd_params[0]))[0:2])
+    # Commands with two short signed integers as argument.
+    elif amc_cmd in ['move_rel_xy', 'move_abs']:
+        if not cmd_params:
+            print(PREFIX_ERROR, end='')
+            print("The number of steps must be specified for the '{0:s}' command!".format(amc_cmd))
+            sys.exit(2)
+        if len(cmd_params) < 2:
+            print(PREFIX_ERROR, end='')
+            print("Both the number of steps in X and Y must be specified for the '{0:s}' command!".format(amc_cmd))
+            sys.exit(2)
+        if amc_cmd == 'move_rel_xy':
+            amc_cmd_bin = AMC_CMD_MOVE_REL_XY
+        else:
+            amc_cmd_bin = AMC_CMD_MOVE_ABS
+        print(cmd_params)
+        amc_cmd_bin.extend(x2bytearray(str2short(cmd_params[0]))[0:2])
+        amc_cmd_bin.extend(x2bytearray(str2short(cmd_params[1]))[0:2])
+    elif amc_cmd == 'stop':
+        amc_cmd_bin = AMC_CMD_STOP
+    elif amc_cmd == 'reset_box':
+        amc_cmd_bin = AMC_CMD_RESET_BOX
+    elif amc_cmd == 'reset_driver':
+        amc_cmd_bin = AMC_CMD_RESET_DRIVER
+    elif amc_cmd == 'status':
+        amc_cmd_bin = AMC_CMD_STATUS
+    elif amc_cmd == 'raw':
+        if not cmd_params:
+            print(PREFIX_ERROR, end='')
+            print("The raw AMC command string must be specified for the command '{0:s}'!".format(amc_cmd))
+            sys.exit(2)
+        amc_cmd_bin = x2bytearray(cmd_params)
+    else:
+        print(PREFIX_ERROR, end='')
+        print("Unknown command '{0:s}'!".format(amc_cmd))
+        sys.exit(2)
+    return amc_cmd_bin
+
+# Print messages about the AMC frame.
+def amc_frame_print(serial_device, amc_frame, amc_crc, verbosity):
+    if verbosity >= 1:
+        print("Serial device: {0:s}".format(serial_device.name))
+    if verbosity >= 2:
+        print()
+        print("AMC ID        : 0x{0:02X}".format(amc_frame[2]))
+        print("SM driver ID  : 0x{0:02X}".format(amc_frame[3]))
+        print("Host PC ID    : 0x{0:02X}".format(amc_frame[4]))
+        print("Data length   : 0x{0:02X}".format(amc_frame[5]))
+        print("AMC command   : {0:s}".format(bytearray2hexstr0x(amc_frame[6:-2])))
+        print("XModem CRC-16 : 0x{0:04X}".format(amc_crc))
+        print()
+    if verbosity >= 3:
+        print("Frame sent to AMC (hex): '{0:s}'".format(bytearray2hexstr(amc_frame)))
+        print()
+
+# Send frame to AMC controller.
+def amc_frame_send(ser, amc_frame):
+    try:
+        ser.write(amc_frame)
+    except Exception as error:
+        print(PREFIX_ERROR, end='')
+        print("Error sending data to the serial port {0:s}:".format(ser.name))
+        print(error)
+        sys.exit(2)
+
+# Read answer from AMC controller.
+def amc_answer_read(ser, verbosity):
+    try:
+        amc_answer = ser.read(ser.inWaiting())
+    except Exception as error:
+        print(PREFIX_ERROR, end='')
+        print("Error reading data from the serial port {0:s}:".format(ser.name))
+        print(error)
+        sys.exit(2)
+    if verbosity >= 1:
+        print("Response from AMC (hex): '{0:s}'".format(bytearray2hexstr(amc_answer)))
+    if verbosity >= 2:
+        print()
+    return amc_answer
+
+# Evaluate the answer from the AMC controller.
+def amc_answer_eval(amc_answer, amc_id, sm_driver_id, pc_id, amc_cmd_bin, amc_cmd, verbosity):
+    # Parse the answer from the AMC controller.
+    if len(amc_answer) < AMC_ANS_NAK_LEN:
+        print(PREFIX_ERROR, end='')
+        print("Answer from AMC controller too short! Expected at least {0:d} bytes, got {1:d}!".format(AMC_ANS_NAK_LEN, len(amc_answer)))
+    payload_len = 0     # Need to define a default value for payload_len, as it is
+                        # used for checking the CRC.
+    for idx, b in enumerate(amc_answer):
+        if idx == 0:        # AMC frame start.
+            if b != AMC_FRAME_SD:
+                print(PREFIX_ERROR, end='')
+                print("Answer from AMC controller does not start with 0x{0:02X}!".format(AMC_FRAME_SD))
+            else:
+                if verbosity >= 2:
+                    print("Correct frame start (0x{0:02X}) received from the AMC controller.".format(AMC_FRAME_SD))
+        elif idx == 1:      # ACK or NAK.
+            if b == AMC_FRAME_NAK:
+                print(PREFIX_ERROR, end='')
+                print("NAK received from AMC command!")
+            elif b != AMC_FRAME_ACK:
+                print(PREFIX_ERROR, end='')
+                print("Invalid response from AMC: The second byte is neither ACK (0x{0:02X}) nor NAK (0x{1:02X})!".format(AMC_FRAME_ACK, AMC_FRAME_NAK))
+            else:
+                if verbosity >= 2:
+                    print("Correct ACK (0x{0:02X}) received from the AMC controller.".format(AMC_FRAME_ACK))
+        elif idx == 2:      # Host computer ID.
+            if b != pc_id:
+                print(PREFIX_ERROR, end='')
+                print("Wrong host computer ID received! Expected 0x{0:02X}, got 0x{1:02X}.".format(pc_id, b))
+            else:
+                if verbosity >= 3:
+                    print("Correct computer host ID (0x{0:02X}) received from the AMC controller.".format(pc_id))
+        elif idx == 3:      # AMC ID.
+            if b != amc_id:
+                print(PREFIX_ERROR, end='')
+                print("Wrong AMC ID received! Expected 0x{0:02X}, got 0x{1:02X}.".format(amc_id, b))
+            else:
+                if verbosity >= 3:
+                    print("Correct AMC ID (0x{0:02X}) received from the AMC controller.".format(amc_id))
+        elif idx == 4:      # Stepper motor driver ID.
+            if b != sm_driver_id:
+                print(PREFIX_ERROR, end='')
+                print("Wrong stepper motor driver ID received! Expected 0x{0:02X}, got 0x{1:02X}.".format(sm_driver_id, b))
+            else:
+                if verbosity >= 3:
+                    print("Correct stepper motor driver ID (0x{0:02X}) received from the AMC controller.".format(sm_driver_id))
+        elif idx == 5:      # Number of payload bytes (without CRC).
+            payload_len = b
+            if verbosity >= 3:
+                print("Number of payload bytes (without CRC): {0:d}".format(b))
+        elif idx == 6:      # Repeated command.
+            if b != amc_cmd_bin[0]:
+                print(PREFIX_ERROR, end='')
+                print("Wrong repeated command received! Expected 0x{0:02X}, got 0x{1:02X}.".format(amc_cmd_bin[0], b))
+            else:
+                if verbosity >= 3:
+                    print("Correct repeated command (0x{0:02X}) received from the AMC controller.".format(amc_cmd_bin[0]))
+        elif idx == 7:      # Status byte 1. See page 12 of "amc2cmd.pdf" and
+                            # "amc.h" of AMC controller firmware version 2.1.6.
+                            # The information in "amc.h" takes precedence.
+            if verbosity >= 2:
+                print("Status byte 1: 0x{0:02X}".format(b))
+                if b & 0x01: print("    Verges error, execution of command done/tried.")
+                if b & 0x02: print("    Unknown command (inexistent cc).")
+                if b & 0x04: print("    Command rejected, nothing done (e.g. on too early move).")
+                if b & 0x08: print("    Illegal/meaningless first parameter (word).")
+                if b & 0x10: print("    Illegal/meaningless second/other parameter (word).")
+                if b & 0x20: print("    CC and length of frame (number of params) contradicting.")
+                if b & 0x40: print("    CP and length of frame contradicting.")
+                if b & 0x80: print("    Bad driver address.")
+        elif idx == 8:      # Status byte 2. See page 12 of "amc2cmd.pdf" and
+                            # "amc.h" of AMC controller firmware version 2.1.6.
+                            # The information in "amc.h" takes precedence.
+            if verbosity >= 2:
+                print("Status byte 2: 0x{0:02X}".format(b))
+                if b & 0x01: print("    Motor X moving.")
+                if b & 0x02: print("    Motor Y moving.")
+                if b & 0x04: print("    Motor X direction up.")
+                if b & 0x08: print("    Motor Y direction up.")
+                if b & 0x10: print("    Motor X at end switch.")
+                if b & 0x20: print("    Motor Y at end switch.")
+                if b & 0x40: print("    Laser is on.")
+                if b & 0x80: print("    Bad driver card.")
+        elif idx >= 9 and idx < AMC_ANS_HEADER_LEN + payload_len:
+            if verbosity >= 2:
+                print("Data byte: 0x{0:02X}".format(b))
+
+    # Show status information.
+    if amc_cmd == 'status':
+        if len(amc_answer) != AMC_ANS_HEADER_LEN + AMC_ANS_STATUS_LEN + 1 + AMC_ANS_XSTATUS_LEN + AMC_ANS_CRC_LEN:
+            print(PREFIX_ERROR, end='')
+            print("Wrong length of AMC answer for status query! Expected {0:d}, got {1:d}.".format(AMC_ANS_HEADER_LEN + AMC_ANS_STATUS_LEN + 1 + AMC_ANS_XSTATUS_LEN + AMC_ANS_CRC_LEN, len(amc_answer)))
+        else:
+            raw_temperature= amc_answer[AMC_ANS_HEADER_LEN+ 3] + (amc_answer[AMC_ANS_HEADER_LEN+ 4] << 8)
+            raw_humidity   = amc_answer[AMC_ANS_HEADER_LEN+ 5] + (amc_answer[AMC_ANS_HEADER_LEN+ 6] << 8)
+            raw_current    = amc_answer[AMC_ANS_HEADER_LEN+ 7] + (amc_answer[AMC_ANS_HEADER_LEN+ 8] << 8)
+            raw_volt_1     = amc_answer[AMC_ANS_HEADER_LEN+ 9] + (amc_answer[AMC_ANS_HEADER_LEN+10] << 8)
+            raw_volt_2     = amc_answer[AMC_ANS_HEADER_LEN+11] + (amc_answer[AMC_ANS_HEADER_LEN+12] << 8)
+            raw_volt_logic = amc_answer[AMC_ANS_HEADER_LEN+13] + (amc_answer[AMC_ANS_HEADER_LEN+14] << 8)
+            # The temperature value is in Kelvin, i.e. subtract 273.15 to get Celsius.
+            temperature    = raw_temperature * AMC_ADC_LSB_MV_AVCC * AMC_COEFF_TEMP - 273.15
+            # The humidity is measured with a voltage divider of 68k over sensor at VREF.
+            # 1. Calculate the resistance of the humidity sensor from the ADC counts.
+            volt_humidity  = raw_humidity * AMC_ADC_LSB_MV_INT * 1e-3   # Voltage at humidity sensor in V instead of mV!
+            res_hum_sens   = volt_humidity * 68e3 / (AMC_BOARD_VREF - volt_humidity)    # Voltage divider with 68k resistor at VREF.
+            # 2. Calculate the humidity from the resistance.
+            humidity       = res_hum_sens * AMC_COEFF_HUMIDITY - AMC_OFFSET_HUMIDITY
+            # See comments at the definition of AMC_COEFF_CURRENT and AMC_OFFSET_CURRENT.
+            current        = (raw_current * AMC_ADC_LSB_MV_INT * 1e-3) * AMC_COEFF_CURRENT - AMC_OFFSET_CURRENT
+            # Simple voltage dividers are use for measuring the supply voltages.
+            volt_1         = raw_volt_1 * AMC_ADC_LSB_MV_INT * AMC_COEFF_VOLT_1
+            volt_2         = raw_volt_2 * AMC_ADC_LSB_MV_INT * AMC_COEFF_VOLT_2
+            volt_logic     = raw_volt_logic * AMC_ADC_LSB_MV_INT * AMC_COEFF_VOLT_LOGIC
+            print("AMC status:")
+            print("    Temperature      : {0:02.02f} °C     (raw: 0x{1:04X} ADC counts)".format(temperature, raw_temperature))
+            if STATUS_INCLUDES_HUM_CUR:
+                print("    Humidity (*)     : {0:02.02f} % RH   (raw: 0x{1:04X} ADC counts)".format(humidity, raw_humidity))
+                print("    Current (*)      : {0:01.03f} A      (raw: 0x{1:04X} ADC counts)".format(current, raw_current))
+            print("    Supply voltage 1 : {0:02.03f} V     (raw: 0x{1:04X} ADC counts)".format(volt_1, raw_volt_1))
+            print("    Supply voltage 2 : {0:02.03f} V     (raw: 0x{1:04X} ADC counts)".format(volt_2, raw_volt_2))
+            print("    Logic voltage    : {0:01.03f} V      (raw: 0x{1:04X} ADC counts)".format(volt_logic, raw_volt_logic))
+            if STATUS_INCLUDES_HUM_CUR:
+                print()
+                print("(*)")
+                print("CAUTION: The values of the humidity and the current may be wrong (meaningless),")
+                print("         because the required components are not mounted on the board!")
+
+    # Check for CRC error.
+    if len(amc_answer) == AMC_ANS_HEADER_LEN + payload_len + AMC_ANS_CRC_LEN:
+        # CRC received with the answer.
+        amc_answer_crc = int.from_bytes(amc_answer[-2:-1]) + (int.from_bytes(amc_answer[-1:]) << 8)
+        # Calculate the CRC of the answer.
+        amc_answer_crc_calc = crc16_xmodem(amc_answer[2:-2])
+        if amc_answer_crc != amc_answer_crc_calc:
+            print(PREFIX_ERROR, end='')
+            print("Wrong CRC received! Expected 0x{0:04X}, got 0x{1:04X}.".format(amc_answer_crc_calc, amc_answer_crc))
+        else:
+            if verbosity >= 3:
+                print("Correct CRC 0x{0:04X} received from the AMC controller.".format(amc_answer_crc))
+
+
+
+#####################################################################
+# High-level AMC functions.
+#####################################################################
+
+# Communication with AMC controller board.
+def amc_comm(ser, verbosity):
+    # Define the AMC parameters.
+    amc_id       = x2bytearray(args.amc_id)[0]
+    sm_driver_id = x2bytearray(args.sm_driver_id)[0]
+    pc_id        = x2bytearray(args.pc_id)[0]
+    amc_cmd      = args.amc_cmd
+    cmd_params   = args.remainder
+
+    # Special command 'scan': Scan the RS-485 port for active controllers.
+    if amc_cmd == 'scan':
+        amc_scan_min = 0
+        amc_scan_max = 255
+        if len(cmd_params) >= 1:
+            amc_scan_min = int(cmd_params[0])
+        if len(cmd_params) >= 2:
+            amc_scan_max = int(cmd_params[1])
+        amc_scan(ser, amc_scan_min, amc_scan_max, pc_id, verbosity)
+        sys.exit(0)
+
+    # Assemble the binary AMC command sequence.
+    amc_cmd_bin = parse_amc_cmd(amc_cmd, cmd_params)
+
+    # Assemble the full AMC frame.
+    amc_frame, amc_crc = amc_frame_assemble(amc_id, sm_driver_id, pc_id, amc_cmd_bin)
+
+    # Print messages about the AMC frame for debugging.
+    amc_frame_print(ser, amc_frame, amc_crc, verbosity)
+
+    # Send frame to AMC controller.
+    amc_frame_send(ser, amc_frame)
+
+    # Wait a while for the answer from the AMC controller.
+    time.sleep(0.1)
+
+    # Read answer from AMC controller.
+    amc_answer = amc_answer_read(ser, verbosity)
+
+    # Evaluate the answer from the AMC controller.
+    amc_answer_eval(amc_answer, amc_id, sm_driver_id, pc_id, amc_cmd_bin, amc_cmd, verbosity)
+
+# Scan the RS-485 port for active controllers.
+def amc_scan(ser, amc_id_start, amc_id_stop, pc_id, verbosity):
+    sm_driver_id = 0
+    amc_cmd_bin = AMC_CMD_STATUS
+    amc_id_list = []
+    for amc_id in range(amc_id_start, amc_id_stop + 1):
+        if verbosity >= 1:
+            print("\rTesting AMC ID {0:d}".format(amc_id), end = '', flush=True)
+        amc_frame, amc_crc = amc_frame_assemble(amc_id, sm_driver_id, pc_id, amc_cmd_bin)
+        amc_frame_send(ser, amc_frame)
+        time.sleep(0.1)
+        amc_answer = amc_answer_read(ser, 0)
+        if len(amc_answer) != AMC_ANS_HEADER_LEN + AMC_ANS_STATUS_LEN + 1 + AMC_ANS_XSTATUS_LEN + AMC_ANS_CRC_LEN:
+            continue
+        if amc_answer[1] != AMC_FRAME_ACK:
+            continue
+        if amc_answer[2] != pc_id:
+            continue
+        if amc_answer[3] != amc_id:
+            continue
+        amc_id_list.append(amc_id)
+    print("\rActive AMC IDs:", end = '', flush=True)
+    for amc_id in amc_id_list:
+        print(" {0:d}".format(amc_id), end='')
+    print()
+
+
+
+#####################################################################
 # Open and set up the serial port.
 #####################################################################
 
-# Open the serial port.
-try:
-    ser = serial.Serial(
-        port=serial_device,
-        baudrate=115200,
-        parity=serial.PARITY_NONE,
-        stopbits=serial.STOPBITS_ONE,
-        bytesize=serial.EIGHTBITS,
-        xonxoff=False,
-        rtscts=False,
-        #rtscts=True,
-        dsrdtr=False,
-        #dsrdtr=True,
-        timeout=1
-    )
-except Exception as error:
-    print(PREFIX_ERROR, end='')
-    print("Error setting up the serial port {0:s}:".format(serial_device))
-    print(error)
-    sys.exit(1)
-
-# Set the RS-485 parameters.
-try:
-    if enable_rs_485:
-        ser.rs485_mode = serial.rs485.RS485Settings(
-            rts_level_for_tx=True,
-            rts_level_for_rx=False,
-            loopback=False,
-            delay_before_tx=None,
-            delay_before_rx=None
+def serial_open(port, baudrate, enable_rs_485):
+    # Open the serial port.
+    try:
+        ser = serial.Serial(
+            port=port,
+            baudrate=baudrate,
+            parity=serial.PARITY_NONE,
+            stopbits=serial.STOPBITS_ONE,
+            bytesize=serial.EIGHTBITS,
+            xonxoff=False,
+            rtscts=False,
+            #rtscts=True,
+            dsrdtr=False,
+            #dsrdtr=True,
+            timeout=1
         )
-except Exception as error:
-    print(PREFIX_ERROR, end='')
-    print("Error setting the RS-485 parameters for serial port {0:s}:".format(serial_device))
-    print(error)
-    sys.exit(1)
+    except Exception as error:
+        print(PREFIX_ERROR, end='')
+        print("Error setting up the serial port {0:s}:".format(port))
+        print(error)
+        sys.exit(1)
+
+    # Set the RS-485 parameters.
+    try:
+        if enable_rs_485:
+            ser.rs485_mode = serial.rs485.RS485Settings(
+                rts_level_for_tx=True,
+                rts_level_for_rx=False,
+                loopback=False,
+                delay_before_tx=None,
+                delay_before_rx=None
+            )
+    except Exception as error:
+        print(PREFIX_ERROR, end='')
+        print("Error setting the RS-485 parameters for serial port {0:s}:".format(port))
+        print(error)
+        sys.exit(1)
+
+    return ser
 
 
 
 #####################################################################
-# Communication with AMC controller board.
+# Main function.
 #####################################################################
 
-# Define the AMC options.
-amc_id       = x2bytearray(args.amc_id)[0]
-sm_driver_id = x2bytearray(args.sm_driver_id)[0]
-pc_id        = x2bytearray(args.pc_id)[0]
-amc_cmd      = args.amc_cmd
-cmd_params   = args.remainder
-
-# Define the binary AMC command and its parameters from the requested command.
-if amc_cmd == 'center':
-    amc_cmd_bin = AMC_CMD_CENTER
-# Commands with one short signed integer as argument.
-elif amc_cmd in ['move_rel_x', 'move_rel_y']:
-    if not cmd_params:
-        print(PREFIX_ERROR, end='')
-        print("The number of steps must be specified for the '{0:s}' command!".format(amc_cmd))
-        sys.exit(2)
-    if amc_cmd == 'move_rel_x':
-        amc_cmd_bin = AMC_CMD_MOVE_REL_X
-    else:
-        amc_cmd_bin = AMC_CMD_MOVE_REL_Y
-    amc_cmd_bin.extend(x2bytearray(str2short(cmd_params[0]))[0:2])
-# Commands with two short signed integers as argument.
-elif amc_cmd in ['move_rel_xy', 'move_abs']:
-    if not cmd_params:
-        print(PREFIX_ERROR, end='')
-        print("The number of steps must be specified for the '{0:s}' command!".format(amc_cmd))
-        sys.exit(2)
-    if len(cmd_params) < 2:
-        print(PREFIX_ERROR, end='')
-        print("Both the number of steps in X and Y must be specified for the '{0:s}' command!".format(amc_cmd))
-        sys.exit(2)
-    if amc_cmd == 'move_rel_xy':
-        amc_cmd_bin = AMC_CMD_MOVE_REL_XY
-    else:
-        amc_cmd_bin = AMC_CMD_MOVE_ABS
-    print(cmd_params)
-    amc_cmd_bin.extend(x2bytearray(str2short(cmd_params[0]))[0:2])
-    amc_cmd_bin.extend(x2bytearray(str2short(cmd_params[1]))[0:2])
-elif amc_cmd == 'stop':
-    amc_cmd_bin = AMC_CMD_STOP
-elif amc_cmd == 'reset_box':
-    amc_cmd_bin = AMC_CMD_RESET_BOX
-elif amc_cmd == 'reset_driver':
-    amc_cmd_bin = AMC_CMD_RESET_DRIVER
-elif amc_cmd == 'status':
-    amc_cmd_bin = AMC_CMD_STATUS
-elif amc_cmd == 'raw':
-    if not cmd_params:
-        print(PREFIX_ERROR, end='')
-        print("The raw AMC command string must be specified for the command '{0:s}'!".format(amc_cmd))
-        sys.exit(2)
-    amc_cmd_bin = x2bytearray(cmd_params)
-else:
-    print(PREFIX_ERROR, end='')
-    print("Unknown command '{0:s}'!".format(amc_cmd))
-    sys.exit(2)
-
-# Assemble the full AMC frame.
-amc_frame = bytearray()
-amc_frame.append(x2bytearray(AMC_FRAME_SD)[0])
-amc_frame.append(x2bytearray(AMC_FRAME_SOH)[0])
-amc_frame.append(amc_id)
-amc_frame.append(sm_driver_id)
-amc_frame.append(pc_id)
-amc_frame.append(len(amc_cmd_bin) & 0xff)
-amc_frame.extend(amc_cmd_bin)
-amc_crc = crc16_xmodem(amc_frame[2:])
-amc_frame.extend(x2bytearray(amc_crc)[:2])
-
-# Messages for debugging.
-if verbosity >= 1:
-    print("Serial device: {0:s}".format(ser.name))
-if verbosity >= 2:
-    print()
-    print("AMC ID        : 0x{0:02X}".format(amc_frame[2]))
-    print("SM driver ID  : 0x{0:02X}".format(amc_frame[3]))
-    print("Host PC ID    : 0x{0:02X}".format(amc_frame[4]))
-    print("Data length   : 0x{0:02X}".format(amc_frame[5]))
-    print("AMC command   : {0:s}".format(bytearray2hexstr0x(amc_frame[6:-2])))
-    print("XModem CRC-16 : 0x{0:04X}".format(amc_crc))
-    print()
-if verbosity >= 3:
-    print("Frame sent to AMC (hex): '{0:s}'".format(bytearray2hexstr(amc_frame)))
-    print()
-
-# Send frame to AMC controller.
-try:
-    ser.write(amc_frame)
-except Exception as error:
-    print(PREFIX_ERROR, end='')
-    print("Error sending data to the serial port {0:s}:".format(serial_device))
-    print(error)
-    sys.exit(2)
-
-# Wait a while for the answer from the AMC controller.
-time.sleep(0.1)
-
-# Read answer from AMC controller.
-try:
-    amc_answer = ser.read(ser.inWaiting())
-except Exception as error:
-    print(PREFIX_ERROR, end='')
-    print("Error reading data from the serial port {0:s}:".format(serial_device))
-    print(error)
-    sys.exit(2)
-if verbosity >= 1:
-    print("Response from AMC (hex): '{0:s}'".format(bytearray2hexstr(amc_answer)))
-if verbosity >= 2:
-    print()
-
-# Evaluate the answer from the AMC controller.
-if len(amc_answer) < AMC_ANS_NAK_LEN:
-    print(PREFIX_ERROR, end='')
-    print("Answer from AMC controller too short! Expected at least {0:d} bytes, got {1:d}!".format(AMC_ANS_NAK_LEN, len(amc_answer)))
-payload_len = 0     # Need to define a default value for payload_len, as it is
-                    # used for checking the CRC.
-for idx, b in enumerate(amc_answer):
-    if idx == 0:        # AMC frame start.
-        if b != AMC_FRAME_SD:
-            print(PREFIX_ERROR, end='')
-            print("Answer from AMC controller does not start with 0x{0:02X}!".format(AMC_FRAME_SD))
-        else:
-            if verbosity >= 2:
-                print("Correct frame start (0x{0:02X}) received from the AMC controller.".format(AMC_FRAME_SD))
-    elif idx == 1:      # ACK or NAK.
-        if b == AMC_FRAME_NAK:
-            print(PREFIX_ERROR, end='')
-            print("NAK received from AMC command!")
-        elif b != AMC_FRAME_ACK:
-            print(PREFIX_ERROR, end='')
-            print("Invalid response from AMC: The second byte is neither ACK (0x{0:02X}) nor NAK (0x{1:02X})!".format(AMC_FRAME_ACK, AMC_FRAME_NAK))
-        else:
-            if verbosity >= 2:
-                print("Correct ACK (0x{0:02X}) received from the AMC controller.".format(AMC_FRAME_ACK))
-    elif idx == 2:      # Host computer ID.
-        if b != pc_id:
-            print(PREFIX_ERROR, end='')
-            print("Wrong host computer ID received! Expected 0x{0:02X}, got 0x{1:02X}.".format(pc_id, b))
-        else:
-            if verbosity >= 3:
-                print("Correct computer host ID (0x{0:02X}) received from the AMC controller.".format(pc_id))
-    elif idx == 3:      # AMC ID.
-        if b != amc_id:
-            print(PREFIX_ERROR, end='')
-            print("Wrong AMC ID received! Expected 0x{0:02X}, got 0x{1:02X}.".format(amc_id, b))
-        else:
-            if verbosity >= 3:
-                print("Correct AMC ID (0x{0:02X}) received from the AMC controller.".format(amc_id))
-    elif idx == 4:      # Stepper motor driver ID.
-        if b != sm_driver_id:
-            print(PREFIX_ERROR, end='')
-            print("Wrong stepper motor driver ID received! Expected 0x{0:02X}, got 0x{1:02X}.".format(sm_driver_id, b))
-        else:
-            if verbosity >= 3:
-                print("Correct stepper motor driver ID (0x{0:02X}) received from the AMC controller.".format(sm_driver_id))
-    elif idx == 5:      # Number of payload bytes (without CRC).
-        payload_len = b
-        if verbosity >= 3:
-            print("Number of payload bytes (without CRC): {0:d}".format(b))
-    elif idx == 6:      # Repeated command.
-        if b != amc_cmd_bin[0]:
-            print(PREFIX_ERROR, end='')
-            print("Wrong repeated command received! Expected 0x{0:02X}, got 0x{1:02X}.".format(amc_cmd_bin[0], b))
-        else:
-            if verbosity >= 3:
-                print("Correct repeated command (0x{0:02X}) received from the AMC controller.".format(amc_cmd_bin[0]))
-    elif idx == 7:      # Status byte 1. See page 12 of "amc2cmd.pdf" and
-                        # "amc.h" of AMC controller firmware version 2.1.6.
-                        # The information in "amc.h" takes precedence.
-        if verbosity >= 2:
-            print("Status byte 1: 0x{0:02X}".format(b))
-            if b & 0x01: print("    Verges error, execution of command done/tried.")
-            if b & 0x02: print("    Unknown command (inexistent cc).")
-            if b & 0x04: print("    Command rejected, nothing done (e.g. on too early move).")
-            if b & 0x08: print("    Illegal/meaningless first parameter (word).")
-            if b & 0x10: print("    Illegal/meaningless second/other parameter (word).")
-            if b & 0x20: print("    CC and length of frame (number of params) contradicting.")
-            if b & 0x40: print("    CP and length of frame contradicting.")
-            if b & 0x80: print("    Bad driver address.")
-    elif idx == 8:      # Status byte 2. See page 12 of "amc2cmd.pdf" and
-                        # "amc.h" of AMC controller firmware version 2.1.6.
-                        # The information in "amc.h" takes precedence.
-        if verbosity >= 2:
-            print("Status byte 2: 0x{0:02X}".format(b))
-            if b & 0x01: print("    Motor X moving.")
-            if b & 0x02: print("    Motor Y moving.")
-            if b & 0x04: print("    Motor X direction up.")
-            if b & 0x08: print("    Motor Y direction up.")
-            if b & 0x10: print("    Motor X at end switch.")
-            if b & 0x20: print("    Motor Y at end switch.")
-            if b & 0x40: print("    Laser is on.")
-            if b & 0x80: print("    Bad driver card.")
-    elif idx >= 9 and idx < AMC_ANS_HEADER_LEN + payload_len:
-        if verbosity >= 2:
-            print("Data byte: 0x{0:02X}".format(b))
-
-# Show status information.
-if amc_cmd == 'status':
-    if len(amc_answer) != AMC_ANS_HEADER_LEN + AMC_ANS_STATUS_LEN + 1 + AMC_ANS_XSTATUS_LEN + AMC_ANS_CRC_LEN:
-        print(PREFIX_ERROR, end='')
-        print("Wrong length of AMC answer for status query! Expected {0:d}, got {1:d}.".format(AMC_ANS_HEADER_LEN + AMC_ANS_STATUS_LEN + 1 + AMC_ANS_XSTATUS_LEN + AMC_ANS_CRC_LEN, len(amc_answer)))
-    else:
-        raw_temperature= amc_answer[AMC_ANS_HEADER_LEN+ 3] + (amc_answer[AMC_ANS_HEADER_LEN+ 4] << 8)
-        raw_humidity   = amc_answer[AMC_ANS_HEADER_LEN+ 5] + (amc_answer[AMC_ANS_HEADER_LEN+ 6] << 8)
-        raw_current    = amc_answer[AMC_ANS_HEADER_LEN+ 7] + (amc_answer[AMC_ANS_HEADER_LEN+ 8] << 8)
-        raw_volt_1     = amc_answer[AMC_ANS_HEADER_LEN+ 9] + (amc_answer[AMC_ANS_HEADER_LEN+10] << 8)
-        raw_volt_2     = amc_answer[AMC_ANS_HEADER_LEN+11] + (amc_answer[AMC_ANS_HEADER_LEN+12] << 8)
-        raw_volt_logic = amc_answer[AMC_ANS_HEADER_LEN+13] + (amc_answer[AMC_ANS_HEADER_LEN+14] << 8)
-        # The temperature value is in Kelvin, i.e. subtract 273.15 to get Celsius.
-        temperature    = raw_temperature * AMC_ADC_LSB_MV_AVCC * AMC_COEFF_TEMP - 273.15
-        # The humidity is measured with a voltage divider of 68k over sensor at VREF.
-        # 1. Calculate the resistance of the humidity sensor from the ADC counts.
-        volt_humidity  = raw_humidity * AMC_ADC_LSB_MV_INT * 1e-3   # Voltage at humidity sensor in V instead of mV!
-        res_hum_sens   = volt_humidity * 68e3 / (AMC_BOARD_VREF - volt_humidity)    # Voltage divider with 68k resistor at VREF.
-        # 2. Calculate the humidity from the resistance.
-        humidity       = res_hum_sens * AMC_COEFF_HUMIDITY - AMC_OFFSET_HUMIDITY
-        # See comments at the definition of AMC_COEFF_CURRENT and AMC_OFFSET_CURRENT.
-        current        = (raw_current * AMC_ADC_LSB_MV_INT * 1e-3) * AMC_COEFF_CURRENT - AMC_OFFSET_CURRENT
-        # Simple voltage dividers are use for measuring the supply voltages.
-        volt_1         = raw_volt_1 * AMC_ADC_LSB_MV_INT * AMC_COEFF_VOLT_1
-        volt_2         = raw_volt_2 * AMC_ADC_LSB_MV_INT * AMC_COEFF_VOLT_2
-        volt_logic     = raw_volt_logic * AMC_ADC_LSB_MV_INT * AMC_COEFF_VOLT_LOGIC
-        print("AMC status:")
-        print("    Temperature      : {0:02.02f} °C     (raw: 0x{1:04X} ADC counts)".format(temperature, raw_temperature))
-        if STATUS_INCLUDES_HUM_CUR:
-            print("    Humidity (*)     : {0:02.02f} % RH   (raw: 0x{1:04X} ADC counts)".format(humidity, raw_humidity))
-            print("    Current (*)      : {0:01.03f} A      (raw: 0x{1:04X} ADC counts)".format(current, raw_current))
-        print("    Supply voltage 1 : {0:02.03f} V     (raw: 0x{1:04X} ADC counts)".format(volt_1, raw_volt_1))
-        print("    Supply voltage 2 : {0:02.03f} V     (raw: 0x{1:04X} ADC counts)".format(volt_2, raw_volt_2))
-        print("    Logic voltage    : {0:01.03f} V      (raw: 0x{1:04X} ADC counts)".format(volt_logic, raw_volt_logic))
-        if STATUS_INCLUDES_HUM_CUR:
-            print()
-            print("(*)")
-            print("CAUTION: The values of the humidity and the current may be wrong (meaningless),")
-            print("         because the required components are not mounted on the board!")
-
-# Check for CRC error.
-if len(amc_answer) == AMC_ANS_HEADER_LEN + payload_len + AMC_ANS_CRC_LEN:
-    # CRC received with the answer.
-    amc_answer_crc = int.from_bytes(amc_answer[-2:-1]) + (int.from_bytes(amc_answer[-1:]) << 8)
-    # Calculate the CRC of the answer.
-    amc_answer_crc_calc = crc16_xmodem(amc_answer[2:-2])
-    if amc_answer_crc != amc_answer_crc_calc:
-        print(PREFIX_ERROR, end='')
-        print("Wrong CRC received! Expected 0x{0:04X}, got 0x{1:04X}.".format(amc_answer_crc_calc, amc_answer_crc))
-    else:
-        if verbosity >= 3:
-            print("Correct CRC 0x{0:04X} received from the AMC controller.".format(amc_answer_crc))
+if __name__ == '__main__':
+    # Open the serial device and set its parameters.
+    ser_dev = serial_open(args.serial_device, 115200, args.enable_rs_485)
+    # Perform communication with the AMC controller.
+    amc_comm(ser_dev, args.verbosity)
 
