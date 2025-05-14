@@ -4,7 +4,7 @@
 # Auth: M. Fras, Electronics Division, MPI for Physics, Munich
 # Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
 # Date: 18 Feb 2025
-# Rev.: 09 May 2025
+# Rev.: 14 May 2025
 #
 # Python script to send a hex command to the AMC test setup to move the motor.
 #
@@ -435,7 +435,7 @@ def amc_answer_eval(amc_answer, amc_id, sm_driver_id, pc_id, amc_cmd_bin, amc_cm
     # Check for CRC error.
     if len(amc_answer) == AMC_ANS_HEADER_LEN + payload_len + AMC_ANS_CRC_LEN:
         # CRC received with the answer.
-        amc_answer_crc = int.from_bytes(amc_answer[-2:-1]) + (int.from_bytes(amc_answer[-1:]) << 8)
+        amc_answer_crc = int.from_bytes(amc_answer[-2:], "little")
         # Calculate the CRC of the answer.
         amc_answer_crc_calc = crc16_xmodem(amc_answer[2:-2])
         if amc_answer_crc != amc_answer_crc_calc:
