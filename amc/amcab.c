@@ -4634,7 +4634,12 @@ int AMC_gui_init()
         p_but[i][j].status = STAT_NOT;
       }
   fl_set_border_width(-3);
-  fl_init();
+  // >>> Fix for missing fl_init() function in newer versions of libforms. >>>
+  //fl_init();
+  int argc = 1;
+  static char *tmp = "random_command";
+  return fl_initialize(&argc, &tmp, 0, 0, 0);
+  // <<< Fix for missing fl_init() function in newer versions of libforms. <<<
   col_define();
 
   ix = 0;
