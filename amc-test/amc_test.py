@@ -4,7 +4,7 @@
 # Auth: M. Fras, Electronics Division, MPI for Physics, Munich
 # Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
 # Date: 18 Feb 2025
-# Rev.: 14 May 2025
+# Rev.: 16 May 2025
 #
 # Python script to send a hex command to the AMC test setup to move the motor.
 #
@@ -513,6 +513,9 @@ def amc_scan(ser, amc_id_start, amc_id_stop, pc_id, verbosity):
         if amc_answer[3] != amc_id:
             continue
         amc_id_list.append(amc_id)
+    # Clear the line.
+    print("\r                                                  ", end = '', flush=True)
+    # Print list of active AMC IDs.
     print("\rActive AMC IDs:", end = '', flush=True)
     for amc_id in amc_id_list:
         print(" {0:d}".format(amc_id), end='')
