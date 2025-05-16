@@ -33,14 +33,22 @@ typedef enum {
                                                          
 
 //chains 1-8 ohne 3: 0-7 without 2
-   #define CMODEMDEVICE0    "/dev/ttyOS0"         //1   ch0 port
-   #define CMODEMDEVICE1    "/dev/ttyOS1"         //2   ch1
-   #define CMODEMDEVICE2    "/dev/ttyOS2"         //3   ch2
-   #define CMODEMDEVICE3    "/dev/ttyOS3"         //4   ch3
-   #define CMODEMDEVICE4    "/dev/ttyOS4"         //5   ch4
-   #define CMODEMDEVICE5    "/dev/ttyOS5"         //6   ch5
-   #define CMODEMDEVICE6    "/dev/ttyOS6"         //7   ch6
-   #define CMODEMDEVICE7    "/dev/ttyOS7"         //8   ch7
+//   #define CMODEMDEVICE0    "/dev/ttyOS0"         //1   ch0 port
+//   #define CMODEMDEVICE1    "/dev/ttyOS1"         //2   ch1
+//   #define CMODEMDEVICE2    "/dev/ttyOS2"         //3   ch2
+//   #define CMODEMDEVICE3    "/dev/ttyOS3"         //4   ch3
+//   #define CMODEMDEVICE4    "/dev/ttyOS4"         //5   ch4
+//   #define CMODEMDEVICE5    "/dev/ttyOS5"         //6   ch5
+//   #define CMODEMDEVICE6    "/dev/ttyOS6"         //7   ch6
+//   #define CMODEMDEVICE7    "/dev/ttyOS7"         //8   ch7
+   #define CMODEMDEVICE0    "/dev/ttyS2"         //1   ch0 port
+   #define CMODEMDEVICE1    "/dev/ttyS3"         //2   ch1
+   #define CMODEMDEVICE2    "/dev/ttyS4"         //3   ch2
+   #define CMODEMDEVICE3    "/dev/ttyS5"         //4   ch3
+   #define CMODEMDEVICE4    "/dev/ttyS6"         //5   ch4
+   #define CMODEMDEVICE5    "/dev/ttyS7"         //6   ch5
+   #define CMODEMDEVICE6    "/dev/ttyS8"         //7   ch6
+   #define CMODEMDEVICE7    "/dev/ttyS9"         //8   ch7
    #define CBAUDRATE B115200
 
 
