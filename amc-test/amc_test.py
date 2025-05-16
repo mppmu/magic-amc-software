@@ -517,8 +517,11 @@ def amc_scan(ser, amc_id_start, amc_id_stop, pc_id, verbosity):
     print("\r                                                  ", end = '', flush=True)
     # Print list of active AMC IDs.
     print("\rActive AMC IDs:", end = '', flush=True)
-    for amc_id in amc_id_list:
-        print(" {0:d}".format(amc_id), end='')
+    if not amc_id_list:
+        print(" none", end='')
+    else:
+        for amc_id in amc_id_list:
+            print(" {0:d}".format(amc_id), end='')
     print()
 
 
