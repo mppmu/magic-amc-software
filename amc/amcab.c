@@ -4638,7 +4638,7 @@ int AMC_gui_init()
   //fl_init();
   int argc = 1;
   static char *tmp = "random_command";
-  return fl_initialize(&argc, &tmp, 0, 0, 0);
+  fl_initialize(&argc, &tmp, 0, 0, 0);
   // <<< Fix for missing fl_init() function in newer versions of libforms. <<<
   col_define();
 
