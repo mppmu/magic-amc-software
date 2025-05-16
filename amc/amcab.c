@@ -491,9 +491,9 @@ int AMCtime(long utime[5])
           atm.tm_year + 1900, atm.tm_mon + 1, atm.tm_mday,
           atm.tm_hour, atm.tm_min, atm.tm_sec, utime[3]);
 
-  utime[5] = atm.tm_hour     * 3600 +  atm.tm_min * 60 + atm.tm_sec;
+  utime[4] = atm.tm_hour     * 3600 +  atm.tm_min * 60 + atm.tm_sec;
   if (atm.tm_hour < 12)
-    utime[5] = utime[5] + 12 * 3600;
+    utime[4] = utime[4] + 12 * 3600;
 
   return(0);
 }
@@ -5633,7 +5633,7 @@ void gen_disto(int ix, int iy, int dx, int dy)
 void gen_sbig(int ix, int iy, int dx, int dy)
 {
   int k, i, j, jx, jy, jx1, jy1, jx2, jy2;
-  char   str[10];
+  char   str[20];
   FL_OBJECT *obj;
 
 
