@@ -1,7 +1,8 @@
 #
 CCLINK = gcc -m32
+CFLAGS = -m32 -Wno-deprecated -Wall
 LDOPTIONS = -g  -L/usr/X11R6/lib
-LDLIBS = -lXext -lX11 -lflimage -L/usr/X11R6/lib -lforms -lXpm -L/usr/local/lib -lcfitsio -L/usr/local/sbig -lsbigcam -lsbigudrv
+LDLIBS = -lXext -lX11 -lflimage -L/usr/X11R6/lib -lforms -lXpm -L/usr/local/lib -lcfitsio -L/usr/local/sbig -lsbigcam -lsbigudrv -lm
 
 
 sbigab: sbigab.o  $(DEPLIBS)
@@ -19,4 +20,17 @@ sbigT: sbigT.o cc.o $(DEPLIBS)
 sbigth: sbigth.o  $(DEPLIBS)
 	$(RM) $@
 	gcc -m32 -D_REENTRANT -lpthread -o $@ $(LDOPTIONS) sbigth.o $(LDLIBS)
+
+.PHONY: all
+
+all: sbig2 sbigab sbig_cmd sbigT
+
+clean:
+	rm *.o
+
+real_clean:
+	rm -f *.o
+	rm -f sbig2 sbigab sbig_cmd sbigT
+
+mrproper: real_clean
 

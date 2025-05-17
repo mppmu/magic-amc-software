@@ -1,5 +1,5 @@
 //#include "di16.h"
-#include "/usr/include/sbigudrv.h"
+#include "sbigudrv.h"
 //#include "/usr/local/sbig/sbigudrv.h"
 //#include "/usr/local/sbig/csbigcam.h"
 //#include "/usr/local/sbig/csbigimg.h"
