@@ -2414,7 +2414,7 @@ void action_cb(FL_OBJECT *ob, long cmd)
           AMC_exec_cmd(panel, CMD_QUERY, numpan, ipan, jpan); // <========== additional query in case
         }
         AMCtime(utime);
-        if (g_updtime < 900000) g_updtime = utime[5] + 20; // wait 30s for next possible auto_adjust after any move
+        if (g_updtime < 900000) g_updtime = utime[4] + 20; // wait 30s for next possible auto_adjust after any move
 
       }
       else {      // it was a laser command ==> check box instead of actuator for communic.problems
@@ -3184,7 +3184,7 @@ void mode_cb(FL_OBJECT *ob, long m)
     else {
       g_ccrec = 1;
       AMCtime(utime);
-      g_updtime = utime[5] + 30;           // wait 30 sec for next possible auto_adjust
+      g_updtime = utime[4] + 30;           // wait 30 sec for next possible auto_adjust
       fl_deactivate_object(FLset_Zd);
       fl_deactivate_object(FLset_Az);
       fl_deactivate_object(FLset_Foc);
