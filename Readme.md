@@ -1,4 +1,119 @@
-# Software for the MAGIC Active Mirror Control (AMC).
+Software for the MAGIC Active Mirror Control (AMC)
+==================================================
+
+## Dependencies
+
+In order to compile and run the AMC software and the SBIG software, you need to
+install the following dependencies. In case you run the software inside a
+container, some of these dependencies must be installed in the container while
+other ones need to be installed on the host system.  
+
+The following instructions have been tested with Ubuntu 24.04 64-bit as host
+system and Ubuntu 18.04 64-bit with 32-bit software enabled as system inside
+the container.
+[Apptainer](https://apptainer.org/ "Apptainer is an open source container platform")
+was used as container platform.
+
+
+### Udev Rules
+
+* The udev rules are located in the directory ```depend/udev``` of
+  this repository.
+* If You run the software inside a container, the udev rules must be copied to
+  the udev rules directory of the **host** system.
+* Copy the file ```51-sbig-debian.rules``` into the directory containing the
+  udev rules. In Ubuntu 22.04, this is the directory ```/etc/udev/rules.d```.
+
+
+### SBIG Firmware
+
+* The SBIG firmware files are located in the directory
+  ```depend/firmware``` of this repository.
+* If You run the software inside a container, the SBIG firmware files must be
+  copied to the firmware directory of the **host** system.
+* Copy all files to the firmware directory ```/lib/firmware```. 
+
+
+### SBIG Libraries
+
+* The SBIG libraries are located in the directory
+  ```depend/lib``` of this repository.
+* If You run the software inside a container, the SBIG libraries must be
+  copied to the **container** system.
+* Copy the files ```sbigcam.so.!!!``` and !!! to ```/usr/local/lib```.
+* If packages of ```libsbigudrv``` are available for your Linux distribution,
+  it is highly recommended to use these. Install the library and its
+  development package. In Ubuntu 18.04, run these commands:
+  ```
+  apt install !!!
+  apt install !!!
+  ```
+* If no packages of ```libsbigudrv``` are available, copy the files
+  ```libsbigudrv!!!``` and ```libsbigudrv!!!``` to ```/usr/local/lib```.
+
+
+### Build tools and auxiliary packages.
+
+* If You run the software inside a container, all build tools and auxiliary
+  packages must be installed in the **container** system.
+* For Ubuntu 18.04, run these commands:
+  ```
+  apt install autoconf
+  apt install autogen
+  apt install automake
+  apt install build-essential
+  apt install git
+  apt install make
+  apt install libcfitsio-dev
+  apt install libforms-dev:i386
+  apt install libsbigudrv2-dev:i386
+  apt install libtool
+  apt install libturbo8_i386
+  apt install libusb-1.0-0-dev
+  apt install libxpm-dev:i386
+  apt install libxpm-dev:i386
+  apt install libxpm4:i386
+  apt install python3
+  apt install python3-serial
+  apt install saods9
+  apt install xpa-tools
+  ```
+
+
+
+## AMC Software
+
+* To build the AMC software, run these commands:
+  ```
+  cd amc
+  make mrproper && make all
+  ```
+* Before runninge the AMC software:
+  - Copy the LUT files into the ```amc``` directory.
+  - Create a link inside the ```amc``` directory with the name !!! to a valid
+    !!! file.
+  - Create the links ```/home/operator/log1``` and ```/home/operator/sbig1```
+    pointing to valid directories.
+* To run the AMC software, cd into the ```amc``` directory and run:
+  ```
+  ./amc
+  ```
+
+
+
+## SBIG Software
+
+* To build the SBIG software, run these commands:
+  ```
+  cd sbig
+  make mrproper && make all
+  ```
+* To run the AMC software, cd into the ```sbig``` directory and run:
+  ```
+  ./sbigab
+  ```
+
+
 
 ## AMC-Test Software
 
@@ -7,6 +122,7 @@ commands to the AMC system. It sends hexadecimal commands to the AMC controller
 board (AMContr_R3).  
 
 __Caution: The firmware version 6 (2.1.6) is required on the AMC controller!__
+
 
 ### Examples
 
