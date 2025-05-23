@@ -29,8 +29,8 @@
 
 //#include "/usr/X11R6/include/X11/forms.h"
 //#include "/usr/X11R6/include/X11/flimage.h"
-#include "/usr/include/forms.h"
-#include "/usr/include/flimage.h"
+#include <forms.h>
+#include <flimage.h>
 
 #include "cursor1.xbm"
 #include "curmsk1.xbm"
