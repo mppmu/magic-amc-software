@@ -40,16 +40,17 @@ was used as container platform.
   ```depend/lib``` of this repository.
 * If You run the software inside a container, the SBIG libraries must be
   copied to the **container** system.
-* Copy the files ```sbigcam.so.!!!``` and !!! to ```/usr/local/lib```.
+* Copy the files ```libsbigcam.a``` and ```libsbigcam.so``` to
+  ```/usr/local/lib```.
 * If packages of ```libsbigudrv``` are available for your Linux distribution,
   it is highly recommended to use these. Install the library and its
   development package. In Ubuntu 18.04, run these commands:
   ```
-  apt install !!!
-  apt install !!!
+  apt install libsbigudrv2
+  apt install libsbigudrv2-dev
   ```
 * If no packages of ```libsbigudrv``` are available, copy the files
-  ```libsbigudrv!!!``` and ```libsbigudrv!!!``` to ```/usr/local/lib```.
+  ```libsbigudrv.a``` and ```libsbigudrv.so``` to ```/usr/local/lib```.
 
 
 ### Build tools and auxiliary packages.
@@ -90,10 +91,11 @@ was used as container platform.
   ```
 * Before runninge the AMC software:
   - Copy the LUT files into the ```amc``` directory.
-  - Create a link inside the ```amc``` directory with the name !!! to a valid
-    !!! file.
+  - Create a link inside the ```amc``` directory with the name
+    ```test_Panels1.txt``` to a valid AMC panel list file, e.g.
+    ```AMC1_panel_list.txt```.
   - Create the links ```/home/operator/log1``` and ```/home/operator/sbig1```
-    pointing to valid directories.
+    pointing to valid directories for storing the log files and SBIG images.
 * To run the AMC software, cd into the ```amc``` directory and run:
   ```
   ./amc
