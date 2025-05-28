@@ -44,10 +44,11 @@ was used as container platform.
   ```/usr/local/lib```.
 * If packages of ```libsbigudrv``` are available for your Linux distribution,
   it is highly recommended to use these. Install the library and its
-  development package. In Ubuntu 18.04, run these commands:
+  development package. Please note that the 32-bit version is required.
+  In Ubuntu 18.04, run these commands:
   ```
-  apt install libsbigudrv2
-  apt install libsbigudrv2-dev
+  apt install libsbigudrv2:i386
+  apt install libsbigudrv2-dev:i386
   ```
 * If no packages of ```libsbigudrv``` are available, copy the files
   ```libsbigudrv.a``` and ```libsbigudrv.so``` to ```/usr/local/lib```.
