@@ -68,11 +68,9 @@ was used as container platform.
   apt install make
   apt install libcfitsio-dev
   apt install libforms-dev:i386
-  apt install libsbigudrv2-dev:i386
   apt install libtool
   apt install libturbo8_i386
   apt install libusb-1.0-0-dev
-  apt install libxpm-dev:i386
   apt install libxpm-dev:i386
   apt install libxpm4:i386
   apt install python3
