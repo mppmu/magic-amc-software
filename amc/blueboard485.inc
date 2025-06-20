@@ -320,5 +320,5 @@ A8:;
 
 printf("blueboard485: exiting\n");
 
-
+return 0;
 }

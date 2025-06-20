@@ -406,8 +406,8 @@ inicenter:
         ( (*pa[j]).err_cnt[0]+(*pa[j]).err_cnt[1] < AMC_errmax*1.5 ) &&
         ( abs( (*pa[j]).act_mot[0]) >5000  ||
           abs( (*pa[j]).act_mot[1]) >5000  ||
-          (*pa[j]).status[0][2] & 0x08 ==0 ||         //motor centered bit  HA 7.12.11
-          (*pa[j]).status[1][2] & 0x08 ==0 ) ) {      //bit means: y direct up HA 7.12.11
+          ((*pa[j]).status[0][2] & 0x08 ==0) ||         //motor centered bit  HA 7.12.11
+          ((*pa[j]).status[1][2] & 0x08 ==0) ) ) {      //bit means: y direct up HA 7.12.11
       (*pa[j]).tmp_sl2 = 1 ;
       byte[0]=xcntr[j][0];
       byte[1]=xcntr[j][1];

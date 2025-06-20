@@ -359,4 +359,5 @@ for(k=0;k<nk;k++){
  }
  printf("exit bburst3, time %d %6.6d\n",sp3,tp3  );
 
+ return 0;
 }

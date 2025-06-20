@@ -428,7 +428,7 @@ morestringflush:
  ascii[1]='\r';
 
 next:
- if(i=send_string(ascii,2) <0) {
+ if((i=send_string(ascii,2)) <0) {
   printf("can't initialize USCM (no response)\n");
   put_logfile(LOG_SVR, 0, "can't initialize USCM (no response)");
   put_logfile(LOG_SVR, 1, "can't initialize USCM (no response)");

@@ -22,7 +22,7 @@ int do_it_timed( unsigned char *addr, int cmdxxxx, long micsec ) {
     int retcod,retcomd;
     retcod=send_command( addr, cmdbf[cmdxxxx ] );
     usleep(micsec);
- printf("do_it_timed retcod %d micsec %d \n",retcod,micsec);
+ printf("do_it_timed retcod %d micsec %ld \n",retcod,micsec);
 //  retcomd=get_response1alt( lbufalt, &res, resin[cmdxxxx]);
     return(get_response1( lbuf, &res, resin[cmdxxxx ]));
  }

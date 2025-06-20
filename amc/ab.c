@@ -38,6 +38,8 @@ int  PWR_read(AMCpower  p[32])
   p[i].deflt=-9; strncpy( p[i].str,"Calib Box",16);     p[i].chan= 8; i++; // chain 8
 
   for (i=0; i<9; i++) p[i].request = -9;
+
+  return 0;
 }
 
 
@@ -212,7 +214,7 @@ newinp:
 
 //.........................................................................
 
-
+  return 0;
 }
 
 
@@ -227,7 +229,7 @@ int LUT_read(AMCpanel p[17][17], int nnew)
    int i,iz,ia,j,jz,izmin,izmax,lut_zen[200],nmbr,ifst;
    int k,kz,lz,kkk,xza,xzb,yza,yzb,px,py,motA,motB,jj;
    float dla, dlb;
-   char line[1000], directory[500], lstr[160], file[160];
+   char line[1000], directory[500], lstr[300], file[160];
 
    FILE* param;
    DIR *dp;
@@ -247,7 +249,7 @@ int LUT_read(AMCpanel p[17][17], int nnew)
 // read directory:
    dp = opendir (".");
 
-   while (ep = readdir (dp)) {
+   while ((ep = readdir (dp))) {
 
       jj=sscanf(ep->d_name,"AMC_Z%d_A%d.lut1" ,&iz,&ia);
 
@@ -357,7 +359,7 @@ int NEW_read(AMCpanel p[17][17])
    int i,iz,ia,j,jz,izmin,izmax,lut_zen[200],nmbr,ifst;
    int k,kz,lz,kkk,xza,xzb,yza,yzb,px,py,motA,motB,jj;
    float dla, dlb;
-   char line[1000], directory[500], lstr[160];
+   char line[1000], directory[500], lstr[300];
 
    FILE* param;
    DIR *dp;
@@ -377,7 +379,7 @@ int NEW_read(AMCpanel p[17][17])
 // read directory:
    dp = opendir (".");
 
-   while (ep = readdir (dp)) {
+   while ((ep = readdir (dp))) {
 
       jj=sscanf(ep->d_name,"AMC_Z%d_A%d.new1" ,&iz,&ia);
 

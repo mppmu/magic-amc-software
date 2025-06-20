@@ -93,7 +93,7 @@ int ready_response(int ip, int nbyte) {
     t1=atv.tv_usec;
     s1=atv.tv_sec-1100100000;
 //printf("get_response1: s1=%d, t1=%d\n",s1,t1);
-  sprintf(&debug[0],"get_response1: s1=%d, t1=%d\n",s1,t1);
+  sprintf(&debug[0],"get_response1: s1=%ld, t1=%ld\n",s1,t1);
   log_write(fdisk, debug, &i2);
 
     res1 = 0 ;                                           //AB
@@ -173,7 +173,7 @@ endlisten:
     ++acon[icon];
 
     if((ds12 > 1) || (dt12 > 520000) ) {
-     printf("connection delay %d sec %d usec \n",ds12,dt12);
+     printf("connection delay %ld sec %ld usec \n",ds12,dt12);
     }
     if(lbuf[1] == 0x15 ) { 
 //   printf("NAK %3x %3x \n", lbuf[7],lbuf[8]);
@@ -1937,7 +1937,7 @@ nothing:
 
 
 int resend_last(int iip, AMCpanel* ptr, int it, int resin ) {
-    int resp, retcod, k;
+    int resp, retcod = 0, k;
     int n_byte_resp, ib, ip, pf;
     unsigned char cmdframe[20];
     unsigned char lbufrsp[256]; 

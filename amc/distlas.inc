@@ -89,6 +89,7 @@ morestringflush:
 
 
 //read echo from USCM
+  res0 = 0;
   for(j=0;j<25;j++) {
    res1 = res - res0;
    ioctl(fd232[0], FIONREAD, &res2);   //get $ of bytes available in RS232 USCM

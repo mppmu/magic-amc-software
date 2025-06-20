@@ -288,4 +288,5 @@ endloop: ;
  }
  printf("dofew exiting\n" );
 end:;
+ return 0;
 }

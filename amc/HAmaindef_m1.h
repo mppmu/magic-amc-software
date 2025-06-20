@@ -8,7 +8,7 @@
     char  linepos[110];
     int   ii, ij, iX, iY, iIsReversed, iIsInstalled;
     float dLaserX, dLaserY, dAxisX, dSlopeX, dConvX, dAxisY, dSlopeY, dConvY;
-    int px,py,po[3],ap[3],ps[3],ad[3],is,npanel;
+    int px,py,po[3],ap[3],ps[3],ad[3],is = 0,npanel;
     int qx,qy;
     int ty,bo[3];        //old
     int ix1,ix2,iy1,iy2;

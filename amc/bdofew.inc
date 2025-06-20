@@ -177,4 +177,5 @@ do_sleep:
  }
  printf("b: got all echoes; exiting bdofew\n" );
 end: ;
+ return 0;
 }
