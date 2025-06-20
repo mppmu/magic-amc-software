@@ -4,7 +4,7 @@
 # Auth: M. Fras, Electronics Division, MPI for Physics, Munich
 # Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
 # Date: 16 May 2025
-# Rev.: 16 May 2025
+# Rev.: 20 Jun 2025
 #
 # Scan all 8 channels (ports) of the MAGIC I AMC system for active AMC boxes
 # and list their AMC IDs.
@@ -31,6 +31,8 @@ AMC_ID_HIGH="255"
 AMC_TEST="./amc_test.py"
 AMC_TEST_COMMAND="-c scan ${AMC_ID_LOW} ${AMC_ID_HIGH}"
 AMC_TEST_PARAMS="-v 1"
+
+cd `dirname $0`
 
 for amc_ch in ${AMC_CHANNELS}; do
     TTYS=`echo "/dev/ttyS$((amc_ch + AMC_CHANNEL_TTY_OFFSET))"`
