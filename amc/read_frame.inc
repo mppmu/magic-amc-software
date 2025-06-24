@@ -1,3 +1,5 @@
+void sameboxversion(AMCpanel *pb );
+
 int read_store_answer( int k, unsigned char *echo, AMCpanel *p)
 {
  int i, it, i1, j, k1, icase, ihall, addr;
@@ -19,7 +21,7 @@ int read_store_answer( int k, unsigned char *echo, AMCpanel *p)
 
 // printf("read_store_answer:  \n");
 
- rcvframe   = echo+1;
+ rcvframe   = (AMCframe_rcv_0 *) (echo+1);
 
   k1=(*rcvframe).src_addr ;
 
@@ -83,12 +85,12 @@ if(icase == 100) {
 
 //one byte (unsigned)
   case(2):
-   rcvframe_b = rcvframe;
+   rcvframe_b = (AMCframe_rcv_b *) rcvframe;
    break;
 
   case(3):
 //   rcvframe_b = rcvframe;
-   rcvframe_bb = rcvframe;
+   rcvframe_bb = (AMCframe_rcv_bb *) rcvframe;
    (*p).version[0][0] = (*rcvframe_bb).byte0;    //version0
    (*p).version[0][1] = (*rcvframe_bb).byte1;    //version1
    (*p).version[1][0] = (*rcvframe_bb).byte0;    //version0
@@ -105,7 +107,7 @@ if(icase == 100) {
 //one unsigned word
 //AMCframe_rcv_uw   *rcvframe_freq ;
   case(4):
-   rcvframe_uw = rcvframe;
+   rcvframe_uw = (AMCframe_rcv_uw *) rcvframe;
    (*p).freq[it] = (*rcvframe_uw).word0;    //frequency
    if( abs( (*p).freq[it] - AMCfreq ) > 5 ) {
     (*p).actstat[it] |= AMCwrngfrq;
@@ -118,7 +120,7 @@ if(icase == 100) {
    break;
 
   case (5):
-   rcvframe_uw = rcvframe;
+   rcvframe_uw = (AMCframe_rcv_uw *) rcvframe;
    (*p).work[it] = (*rcvframe_uw).word0;    //working current
    if( abs( (*p).work[it] - 1000.*AMCwork ) > 1 ) {
     (*p).actstat[it] |= AMCwrngwrk;
@@ -129,7 +131,7 @@ if(icase == 100) {
    break;
 
   case (6):                                 //read holding current
-   rcvframe_uw = rcvframe;
+   rcvframe_uw = (AMCframe_rcv_uw *) rcvframe;
    (*p).hold[it] = (*rcvframe_uw).word0;    //holding current
    if( abs( (*p).hold[it] - 1000.*AMChold ) > 1 ) {
     (*p).actstat[it] |= AMCwrnghld;
@@ -142,11 +144,11 @@ if(icase == 100) {
 //one signed word
 //AMCframe_rcv_w   *rcvframe_pos ;
   case (8):                                 //read motor position
-   rcvframe_ww = rcvframe;
+   rcvframe_ww = (AMCframe_rcv_ww *) rcvframe;
    (*p).act_mot[0] = (*rcvframe_ww).xpos;   //actual motor position
    (*p).act_mot[1] = (*rcvframe_ww).ypos;   //actual motor position
 
-   if( ((*p).status[0][1] & 3) == 0 )      //manipulate only at the end of the moves
+   if( ((*p).status[0][1] & 3) == 0 ) {     //manipulate only at the end of the moves
     if( ((*p).act_mot[0] == 0)
      && ((*p).act_mot[1] == 0) ) {
      if( (*p).pan_centred == 0) {
@@ -154,6 +156,7 @@ if(icase == 100) {
       (*p).act_mot[1] = 17000;               // motor position lost
      }
     } else (*p).pan_centred = 0;
+   }
 
 
    addr=(*rcvframe_ww).src_addr;
@@ -166,14 +169,14 @@ if(icase == 100) {
    break;
 
   case (9)  :                                 //read motor position from EEprom
-   rcvframe_w = rcvframe;
+   rcvframe_w = (AMCframe_rcv_w *) rcvframe;
    (*p).act_mot[it] = (*rcvframe_w).word0;    //actual motor position
    break;
 
 
 //six words
   case (13) :                   //read humidity and temperature, current voltage
-   rcvframe_wwwwww = rcvframe;
+   rcvframe_wwwwww = (AMCframe_rcv_wwwwww *) rcvframe;
    (*p).humi[0] = (*rcvframe_wwwwww).humid;
    (*p).temp[0] = (*rcvframe_wwwwww).temp;
    (*p).curr[0] = (*rcvframe_wwwwww).curr;

@@ -30,4 +30,4 @@
 
     tv=&atv;
     tz=&atz;
-    word=&byte;
+    word = (int *) &byte;

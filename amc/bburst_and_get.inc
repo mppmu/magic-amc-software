@@ -189,8 +189,8 @@ sumgch=0;
 for (k=0;k<nport;k++) {
    for (i=0;i<nechpnt2[k];i++) {
       j1=echpnt2[k][i];
-      rcvframe   = &echo[k][j1];
-      rcvframe1  = &echo[k][j1];
+      rcvframe   = (AMCframe_rcv_0 *) &echo[k][j1];
+      rcvframe1  = (AMCframe_rcv_1 *) &echo[k][j1];
       k1= (*rcvframe1).drv_addr;
       if (k1<0 || k1>n700) continue;
       i1=baddr2indx[k][k1];
@@ -206,8 +206,8 @@ illegaddr: ;
    }
    for (i=0;i<nechaltpnt2[k];i++) {
       j1=echaltpnt2[k][i];
-      rcvframe   = &echoalt[k][j1];
-      rcvframe1  = &echo[k][j1];
+      rcvframe   = (AMCframe_rcv_0 *) &echoalt[k][j1];
+      rcvframe1  = (AMCframe_rcv_1 *) &echo[k][j1];
       k1= (*rcvframe1).drv_addr;
       if (k1<0 || k1>n700) continue;
       i1=baddr2indx[k][k1];

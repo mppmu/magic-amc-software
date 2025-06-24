@@ -209,7 +209,7 @@ for(k=0;k<nport;k++) {
  for(i=0;i<nechpnt2[k];i++) {
   j1=echpnt2[k][i];
 //rcvframe   = &echo[k][j1];
-  rcvframe   = &echo[k][j1+1];
+  rcvframe   = (AMCframe_rcv_0 *) &echo[k][j1+1];
   k1=((*rcvframe).src_addr) ;
 //  k1=((*rcvframe).src_addr)-0x8000 ;
 
@@ -231,7 +231,7 @@ illegaddr: ;
 
  for(i=0;i<nechaltpnt2[k];i++) {
   j1=echaltpnt2[k][i];
-  rcvframe   = &echoalt[k][j1+1];
+  rcvframe   = (AMCframe_rcv_0 *) &echoalt[k][j1+1];
 //  k1=((*rcvframe).src_addr)-0x8000 ;
   k1=((*rcvframe).src_addr) ;
   if(k1<0 || k1> n700) continue;

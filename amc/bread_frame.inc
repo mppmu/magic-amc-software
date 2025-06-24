@@ -1,3 +1,5 @@
+void sameboxstat(AMCpanel *pb, int stat);
+
 void sameboxhumtemp(AMCpanel *pb, int hum, int temp, int curr, 
                     int v1, int v2, int v3) {
 
@@ -53,11 +55,12 @@ int bread_store_answer( int k, unsigned char *echo, AMCpanel *p)
  AMCframe_rcv_wwwwww *rcvframe_wwwwww ;
  AMCframe_rcv_9w   *rcvframe_9w   ;
   
- for(i=0;i<12;i++) printf("%2.2x ",*(i+echo)); printf("\n");
+ for(i=0;i<12;i++) printf("%2.2x ",*(i+echo));
+ printf("\n");
 
 
 
- rcvframe   = echo+1;
+ rcvframe   = (AMCframe_rcv_0 *) (echo+1);
  printf("bread_store_answer: %2.2x %4.4x, %4.4x, %d, %2.2x\n"
   ,(*rcvframe).header
   ,(*rcvframe).src_addr  ,(*rcvframe).dst_addr
@@ -105,11 +108,11 @@ casefound:
 
 //one byte (unsigned)
   case(2):
-   rcvframe_b = rcvframe;
+   rcvframe_b = (AMCframe_rcv_b *) rcvframe;
    (*p).laser = (*rcvframe_b).byte0 ;
    break;
   case(3):
-   rcvframe_b = rcvframe;
+   rcvframe_b = (AMCframe_rcv_b *) rcvframe;
    (*p).version[it][0] = (*rcvframe_b).byte0;    //version
    break;
 
@@ -119,7 +122,7 @@ casefound:
 //AMCframe_rcv_ww   *rcvframe_tmp ;
   case (13) :                   //read humidity and temperature
 
-   rcvframe_wwwwww = rcvframe;
+   rcvframe_wwwwww = (AMCframe_rcv_wwwwww *) rcvframe;
    for(j=0;j<3;j++) {
     (*p).humi[0] = (*rcvframe_wwwwww).humid;
     (*p).temp[0] = (*rcvframe_wwwwww).temp;
@@ -142,7 +145,8 @@ casefound:
 
   default:
   printf("bread_frame.inc: default reached: code=%2.2x, icase %d\n",code, icase);
-  for(i=0;i<12;i++) printf("%2.2x ",(*(echo+i)) ); printf("\n");
+  for(i=0;i<12;i++) printf("%2.2x ",(*(echo+i)) );
+  printf("\n");
 
   printf("error exit bread_store_answer \n");
   return(-1);

@@ -994,9 +994,11 @@ void *AutoPict_th(void *threadid)
   sprintf(lstr, "SBIGA Pict %ld %f", a_sb_mode, time);
   put_logfile(LOG_SBG, 0, lstr);
   g_sbiga_th = g_sb_mode;      //flag thread as active
-  ret = PictureST7(g_expos, &img_buffer, x0, y0, xwid, ywid, shutt, mode);
+  ret = PictureST7(g_expos, (short unsigned int *) &img_buffer, x0, y0, xwid, ywid, shutt, mode);
 
   g_sbiga_th = g_sb_mode * -1; //flag thread as finished
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -2576,10 +2578,10 @@ void action_cb(FL_OBJECT *ob, long cmd)
           else if (jcmd == GUIcmd_INIT || jcmd == GUIcmd_INFF || jcmd == GUIcmd_INIF)
             upd_act_pan(i, j, 1, -1);
 
-          if (moveflg >= 0)
+          if (moveflg >= 0) {
             if (nerrx == 0)  log_act(i, j, LOG_ACT, -2, jcmd);
             else              log_act(i, j, LOG_ERR, 0, jcmd);
-
+          }
         }
       }
 
@@ -4321,14 +4323,14 @@ void exec_cc(FL_OBJECT *ob, long n)
     else {
       g_cc_cmd = 0;
       g_ccstat = 2;
-      sprintf(xstr, "ILLEG", n);
+      sprintf(xstr, "ILLEG: %ld", n);
       col = 403;
     }
 
     if (col > 0) {
       fl_set_object_label(FLcmd_cmd, xstr);
       fl_set_object_color(FLcmd_cmd, col, col + 10);
-      sprintf(xstr, "%02d:%02d:%02d", g_cc_timc / 10000, (g_cc_timc / 100) % 100, g_cc_timc % 100);
+      sprintf(xstr, "%02ld:%02ld:%02ld", g_cc_timc / 10000, (g_cc_timc / 100) % 100, g_cc_timc % 100);
       fl_set_object_label(FLcmd_time, xstr);
       sprintf(lstr, "executing  Command %ld %d", n, cmd);
       put_logfile(LOG_DB1, 0, lstr);
@@ -6065,7 +6067,7 @@ shutit:
 
   }
 
-  if (g_sbig_err > 0) return;
+  if (g_sbig_err > 0) return g_sbig_err;
 
   /*  Read the Picture  */
   if (mode >= S_PICT_TH) {  //read picture
@@ -6154,7 +6156,7 @@ short FilterST7(long i)
   }
 
   j = (i - g_oldfilt);
-  if (j == 0) return;
+  if (j == 0) return 0;
   if (j < 0) j += 5;
   g_sbig_dscr = 1. / (4 * j + 2);
   g_sbig_scrol = g_sbig_dscr;
@@ -6193,6 +6195,8 @@ void *StandbyST7_th(void *threadid)
 {
   st7Error = SetCoolingOff();
   g_sbig_th = S_STBY_TH * -1;
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6225,6 +6229,7 @@ void *CloseST7_th(void *threadid)
 
   if (g_sbig_th != 0) g_sbig_th = S_CLOS_TH * -1;
 
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6247,6 +6252,8 @@ void *InitDST_th(void *threadid)
 
   sleep(15);
   g_dist_th = S_INIT_TH * -1;
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6258,6 +6265,8 @@ void *CloseDST_th(void *threadid)
   while (power[PWR_DIST].actual > 0 && pwrtry++ < 20) sleep(1);
 
   g_dist_th = S_CLOS_TH * -1;
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6360,6 +6369,7 @@ enditX:
 enditY:
   g_sbig_th = S_INIT_TH * -1;
 
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6391,7 +6401,7 @@ void *TakePict_th(void *threadid)
   put_logfile(LOG_SBG, 0, lstr);
 
   g_sbig_th = g_sb_mode;      //flag thread as active
-  ret = PictureST7(g_expos, &img_buffer, x0, y0, xwid, ywid, shutt, mode);
+  ret = PictureST7(g_expos, (short unsigned int *) &img_buffer, x0, y0, xwid, ywid, shutt, mode);
 
   if (g_sbig_cc > 0) {       //was an CC picture mode -> save image
     save_cb(NULL, -11);
@@ -6400,6 +6410,8 @@ void *TakePict_th(void *threadid)
   g_sbig_stat = 3;
 
   g_sbig_th = g_sb_mode * -1; //flag thread as finished
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6414,6 +6426,8 @@ void *Filter_th(void *threadid)
   g_oldfilt = g_filter;
   g_sbig_th = S_FILT_TH * -1; //flag thread as finished
   g_sbig_stat = 3;
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6505,17 +6519,17 @@ int read_from_CC(int filedes)
                    &ccst1[15], &ccst1[16], &ccst1[17],                                     //Lidar state, aux state, GRB state
                    &ccM1zd, &ccM1az, &ccRQzd, &ccRQaz,                                     //current M1 Zd [deg], current M1 Az [deg], req DEC [deg], req RA [deg]
                    &ccT, &ccP, &ccV, &ccH, &ccUPS, &ccGPS,                                 //mean T, pressure, wind speed, mean hum, ups charge, Rub-GPS
-                   &ccsched, &ccsrc, &cccat,                                               //SCHEDULE sourcename, category
+                   ccsched, ccsrc, &cccat,                                                 //SCHEDULE sourcename, category
                    &ccst2[ 0], &ccst2[ 1], &ccst2[ 2], &ccst2[ 3],                         //DAQ2 state, DominoCalibration2, drive2, stg2 state
                    &ccst2[ 4], &ccst2[ 5], &ccst2[ 6], &ccst2[ 7], &ccst2[ 8],             //CaCo2 state, CaCo2 LID, CaCo2 sentinel, CaCo2 LV, CaCo2
                    &ccst2[ 9], &ccst2[10], &ccst2[11], &ccst2[12], &ccst2[13], &ccst2[14], //AMC2 state, L2T2, pulsar2, receiver2, DT2, calib2
                    &ccst2[15],                                                             //readout cooling
                    &ccM2zd, &ccM2az,                                                       //current M2 Zd [deg], current M2 Az [deg]
-                   &ccLight,                                                               //LightConditions (“Moon”, “No Moon”, “Twilight”, “Day”)
-                   &ccGRB, &ccst2[16],                                                     //GRB dataking state (0=no GRB, 1=GRB alert received; processing it/taking
-                   &ccGPSERROR, &ccst2[17],                                                //GPS_ERROR %01d (0=no error, 1=error)
-                   &ccCT, &ccst2[18], &ccst2[19],                                          //CT_ACTIVE M1_active, M2_active
-                   &ccOVER                                                                 //OVER
+                   ccLight,                                                                //LightConditions (“Moon”, “No Moon”, “Twilight”, “Day”)
+                   ccGRB, &ccst2[16],                                                      //GRB dataking state (0=no GRB, 1=GRB alert received; processing it/taking
+                   ccGPSERROR, &ccst2[17],                                                 //GPS_ERROR %01d (0=no error, 1=error)
+                   ccCT, &ccst2[18], &ccst2[19],                                           //CT_ACTIVE M1_active, M2_active
+                   ccOVER                                                                  //OVER
                   );
 
         if (n < 50) {
@@ -6557,7 +6571,7 @@ int read_from_CC(int filedes)
         // sscanf command ....
         if (strncmp(g_ccbuf, "SBIG", 4) == 0) { //we have an SBIG command
           g_cc_cmd = 0;
-          n = sscanf(g_ccbuf, "SBIG %s %ld %s", &xCmd, &xT, &xName);
+          n = sscanf(g_ccbuf, "SBIG %s %ld %s", xCmd, &xT, xName);
           if (n > 0) {
             if (strncmp(xCmd, "ON", 2) == 0) {
               g_cc_cmd = 201;
@@ -6639,7 +6653,7 @@ int read_from_CC(int filedes)
         }
         else if (strncmp(g_ccbuf, "TPICT", 5) == 0) {
           g_cc_cmd = 111; //TPICT
-          n = sscanf(g_ccbuf, "TPICT %s", &xName);
+          n = sscanf(g_ccbuf, "TPICT %s", xName);
           xName[30] = '\0'; // just in case it is very long ....
           snprintf(g_cc_name, LOGLEN, "%s/%04d/%02d/M1_TPT_%06ld_%06ld_F%d_X%05d_Z%+03d_A%+04d_%s",
                    sbig_path, YY, MM, utime[1], utime[0], g_pict_filt, g_pict_expos, global_zenith, global_azimut, xName);
@@ -6684,14 +6698,14 @@ void *FromCC_th(void *threadid)
     sprintf(lstr, "Problem with Socket %d", sock);
     put_logfile(LOG_ERR, 0, lstr);
     g_ccrec = -11;
-    return;
+    return NULL;
   }
 
   if ((ilist = listen (sock, 1)) < 0) {
     sprintf(lstr, "Problem with Listen %d", ilist);
     put_logfile(LOG_ERR, 0, lstr);
     g_ccrec = -12;
-    return;
+    return NULL;
   }
 
   /* Initialize the set of active sockets. */
@@ -6729,7 +6743,7 @@ void *FromCC_th(void *threadid)
             }
             else {
 
-              snprintf (lstr, LOGLEN, "Server: connect from host %s, port %hd  on %d %d",
+              snprintf (lstr, LOGLEN, "Server: connect from host %d, port %hd  on %d %d",
                         inet_ntoa (clientname.sin_addr),
                         ntohs (clientname.sin_port), i, new);
               put_logfile(LOG_CC_, 0, lstr);
@@ -6754,7 +6768,7 @@ void *FromCC_th(void *threadid)
   close(sock);
   sprintf(lstr, "close FromCC thread");
   put_logfile(LOG_CC_, 0, lstr);
-  return;
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6810,7 +6824,7 @@ void *ToCC_th(void *threadid)
       init = connect (g_cc_tosock, (struct sockaddr *) &servername, sizeof (servername));
       errv = errno;
       if (init < 0) {           //flag as error
-        if (g_ccsnd < 0) return;
+        if (g_ccsnd < 0) return NULL;
         if (global_mode >= MODE_MANU) fl_set_object_color(FLout_info, 404, 404);
         else                            fl_set_object_color(FLout_info, FL_RED, FL_RED);
 
@@ -6893,6 +6907,8 @@ void *ToCC_th(void *threadid)
   }
   sprintf(lstr, "close ToCC thread");
   put_logfile(LOG_CC_, 0, lstr);
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------

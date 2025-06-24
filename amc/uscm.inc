@@ -45,14 +45,15 @@ morestringflush:
    printf("\nsend_string: %d bytes flushed, %2.2x, %2.2x\n",res2,echo[0],echo[1]);
    if(res3>0) { echo[res3]=0;  printf("%s|\n",echo); }
 
-   for(i=0;i<res3-8 ;i++)
+   for(i=0;i<res3-8 ;i++) {
     if(echo[i] == prompt[2]) {
      if((ret=compare_string(&echo[i],&prompt[2],8 )) == 0) {
       prompted = 1; break;
      }
     }
-    goto morestringflush;
    }
+   goto morestringflush;
+  }
 
 
 //output the string
@@ -98,7 +99,7 @@ prttim:
   tp5=atv.tv_usec           - tp4;
   sp5=atv.tv_sec-AMCtimeoff - sp4;
   if(tp5<0) {tp5+=1000000; sp5--;}
-  printf("send_s %d s, %d us\n",sp5,tp5);
+  printf("send_s %ld s, %ld us\n",sp5,tp5);
 
   return(i);
 
@@ -377,9 +378,9 @@ unsigned char text[10];
   */
 
  for(i=0;i<80;i++)  ascii[i]=3;
- ascii[ 0]=' 0';
- ascii[ 1]=' ,';
- ascii[ 2]=' 0';
+ ascii[ 0]= '0';
+ ascii[ 1]= ',';
+ ascii[ 2]= '0';
  ascii[77]=26;
  ascii[78]='\n';
  ascii[79]='\r';
@@ -451,7 +452,7 @@ next:
 //  send_string(ascii,2);
   send_string(ascii,1);
 for(i=0;i<60 ;i++) text[i] = '%';
-printf("call recv_string\n",j);
+printf("call recv_string %d\n",j);
 //usleep(500000);
   j=recv_string(text, 10, &n1);
 

@@ -15,7 +15,7 @@ int dofew(icmd, dtend, chpoint,gchpoint,npoint, nk )
  long tend;
 
 
- sprintf(&debug,"dofew entered icmd=%d, %x\n\0",icmd,cmdbf[icmd][6] );
+ sprintf(debug,"dofew entered icmd=%d, %x\n\0",icmd,cmdbf[icmd][6] );
  log_write(fdisk, debug, &i2);
  printf("dofew: icmd=%x\n",icmd);
 
@@ -141,20 +141,20 @@ wait_now_ans:
   retcod=get_response1( ip, lbuf, &res, resin[icmd]);
   printf("retcod(get_response1)= %d; %2.2x%2.2x, resin=%d, res=%d\n"
   , retcod,xcntr[j][1], xcntr[j][0],resin[icmd], res);
-  sprintf(&debug,"retcod(get_response1)= %d; %2.2x%2.2x, resin=%d, res=%d\n"
+  sprintf(debug,"retcod(get_response1)= %d; %2.2x%2.2x, resin=%d, res=%d\n"
   , retcod,xcntr[j][1], xcntr[j][0],resin[icmd], res);
   log_write(fdisk, debug, &i2);
   if(  AMC_check_gui( ii, AMC_scroll) != 0) goto end;
   wtansw_cnt++;
   iflag=-9;
 printf("getresponse1: retcod = %d, res =%d, resin =%d\n",retcod, res, resin[icmd]);
-  sprintf(&debug,"getresponse1: retcod = %d, res =%d, resin =%d\n",retcod, res, resin[icmd]);
+  sprintf(debug,"getresponse1: retcod = %d, res =%d, resin =%d\n",retcod, res, resin[icmd]);
   log_write(fdisk, debug, &i2);
   if( (retcod >= 0) && (res == resin[icmd]-11) )  {
 
    iflag=read_store_answer( k, globallbuf, pa[j]);
    printf("dofew: return read_store_answer: (retcode) iflag=%d\n", iflag);
- sprintf(&debug,"dofew: return read_store_answer: (retcode) iflag=%d\n", iflag);
+ sprintf(debug,"dofew: return read_store_answer: (retcode) iflag=%d\n", iflag);
  log_write(fdisk, debug, &i2);
 
    if(iflag == 0) (*pa[j]).pan_stat=STAT_OK1;   //--
@@ -169,7 +169,7 @@ printf("getresponse1: retcod = %d, res =%d, resin =%d\n",retcod, res, resin[icmd
   }
 
   printf("iflag %d, ipoint[k]=%d, gchpoint= %d\n",iflag, ipoint[k], gchpoint[k][ipoint[k]] );
-  sprintf(&debug,"iflag %d, ipoint[k]=%d, gchpoint= %d\n",iflag, ipoint[k], gchpoint[k][ipoint[k]] );
+  sprintf(debug,"iflag %d, ipoint[k]=%d, gchpoint= %d\n",iflag, ipoint[k], gchpoint[k][ipoint[k]] );
   log_write(fdisk, debug, &i2);
 
   if( iflag == 0 ) {
@@ -245,7 +245,7 @@ endloop: ;
  if((iok>0) && (round<2*(ntodomin+10) )) goto nextround;
  
 
- printf("end time  delta= %ds %6.6dus\n" ,sp2,tp2 );
+ printf("end time  delta= %lds %6.6ldus\n" ,sp2,tp2 );
  //sprintf(text,"end time  delta= %ds %6.6dus\n" ,sp2,tp2 );
  //log_write(fdisk, text, &ntext);
 

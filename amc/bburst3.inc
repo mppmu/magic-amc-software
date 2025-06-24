@@ -67,7 +67,7 @@ int bburst(icmd, dtend, chpoint,gchpoint,npoint, nk )
  sp0=atv.tv_sec-AMCtimeoff;
  tp1=0;
  sp1=0;
- printf("bburst called: start time %dsec %6.6dusec\n" ,sp0,tp0);
+ printf("bburst called: start time %ldsec %6.6ldusec\n" ,sp0,tp0);
 
 // steps= 256*value[1]+ value[0];
 
@@ -79,7 +79,8 @@ nextround:
 
 if( AMC_check_gui( ii, AMC_scroll) != 0) goto end;
                               
- for(k=0;k<nk;k++)  printf("0%d: %d  ",k,abcount[k]); printf("\n");
+ for(k=0;k<nk;k++)  printf("0%d: %ld  ",k,abcount[k]);
+ printf("\n");
  iok=0;                                   //no work in any chain to be done
  for(k=0;k<nk;k++){
 
@@ -111,7 +112,7 @@ check_end_port:
    i=ii%nmaxcurr;
    if(tanfa > endtime[i]) {
     ilast=i;
-    printf("is current, cell %d, times %d %d %d, k=%d tp2 %d, abc%d\n"
+    printf("is current, cell %d, times %ld %ld %ld, k=%d tp2 %ld, abc%ld\n"
       ,i,tanfa,tend,endtime[i],k,tp2,abcount[k]);
     goto iscurrent;
    }
@@ -171,7 +172,7 @@ printf("bburst:crucial write to fd[%d]=%d\n",portoralt,fd[portoralt]);
      abcount[k]= AMCnmintime;            //start distance timer for this chain
      iset=k;                             //keep in mind the number of the chain processed
 //   printf("fr sent %x %d  res %d  ",globaladdr, globalchain,res);
-     printf("%dk%dxx%6.6d$ ",k,xxport[j],tp2);
+     printf("%dk%dxx%6.6ld$ ",k,xxport[j],tp2);
      for(i=0;i<cmdbf[icmd][5]+8;i++) printf("%2.2x ", cmdbf[icmd][i] );
      printf("\n");
 
@@ -204,7 +205,7 @@ endloop:                                 //if there has been no free slot, we ju
 } //k-loop
     usleep(5000);                       //"each" chain got a frame; wait for acknowledge
 
- sprintf(&debug[0],"bburst3:begin 2nd k-loop %d\n\0",sp0 );
+ sprintf(&debug[0],"bburst3:begin 2nd k-loop %ld\n\0",sp0 );
  log_write(fdisk, debug, &i2);
 
 
@@ -222,7 +223,7 @@ for(k=0;k<nk;k++){
    else
     ioctl(fd[k], FIONREAD, &res1);   //get # of bytes to flush
 
-    if(res1>0) {
+   if(res1>0) {
      if(res1>1024) res1=1023;
      //dont printf("%d%6.6d",sp2,tp2);
      res2= read(fd[k],&echo[k][echpnt[k]],res1);
@@ -242,7 +243,7 @@ for(k=0;k<nk;k++){
    else
     ioctl(fdalt[k], FIONREAD, &res1); //get # of bytes received by alternate port
 
-    if(res1>0) {
+   if(res1>0) {
      if(res1>1024) res1=1023;
      //dont printf("%d%6.6d",sp2,tp2);
      res2= read(fdalt[k],&echoalt[k][echaltpnt[k]],res1);
@@ -316,7 +317,7 @@ for(k=0;k<nk;k++){
    else
     ioctl(fd[k], FIONREAD, &res1);   //get # of bytes to flush
 
-    if(res1>0) {
+   if(res1>0) {
      if(res1>1024) res1=1023;                          //HA 1.9.08
      res2= read(fd[k],&echo[k][echpnt[k]],res1);
      idebug=0;
@@ -335,7 +336,7 @@ for(k=0;k<nk;k++){
    else
     ioctl(fdalt[k], FIONREAD, &res1);   //get $ of bytes to flush
 
-    if(res1>0) {
+   if(res1>0) {
      if(res1>1024) res1=1023;                          //HA 1.9.08
      res2= read(fdalt[k],&echoalt[k][echaltpnt[k]],res1);
      idebug=0;
@@ -357,7 +358,7 @@ for(k=0;k<nk;k++){
  if(tp3<0) {
   sp3--; tp3+=1000000;
  }
- printf("exit bburst3, time %d %6.6d\n",sp3,tp3  );
+ printf("exit bburst3, time %ld %6.6ld\n",sp3,tp3  );
 
  return 0;
 }

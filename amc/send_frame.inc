@@ -101,7 +101,8 @@ printf("act_mod %d, move_by %d; [1] %d %d, pan_cent %d \n",
 
   default:
   printf("send_frame.inc: default reached: code=%2.2x, icase %d\n",code, icase);
-  for(i=0;i<12;i++) printf("%2.2x ",(*(echo+i)) ); printf("\n");
+  for(i=0;i<12;i++) printf("%2.2x ",(*(echo+i)) );
+  printf("\n");
 
   return(-1);
 

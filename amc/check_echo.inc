@@ -31,7 +31,7 @@ for(k=0;k<nport;k++) {
     printf("\n");
    j=l+8;
    echaltpnt1[k][nechaltpnt1[k]++]=l;
-   sndframe   = &echoalt[k][l];
+   sndframe   = (AMCframe_snd_0 *) &echoalt[k][l];
    k1=((*sndframe).dst_addr) ;
    if(k1<0) continue;
    if(k1>0x500) continue;
@@ -76,7 +76,7 @@ illegaddr:;
 //check also status2 here
    if( (echoalt[k][l+8] & cleared_bits) == 0     ) {      //st2^bits = 0?
 
-    rcvframe   = (&echoalt[k][l])+1;
+    rcvframe   = (AMCframe_rcv_0 *) ((&echoalt[k][l])+1);
     k1=((*rcvframe).src_addr);
     i1=addr2indx[k][k1];
     if(i1<0) goto lab1;
@@ -125,7 +125,7 @@ for(k=0;k<nport;k++) {
    j=l+2;
    echpnt1[k][nechpnt1[k]++]=l;
 
-   sndframe   = &echo[k][l];
+   sndframe   = (AMCframe_snd_0 *) &echo[k][l];
    k1=((*sndframe).dst_addr) ;
    if(k1<0) continue;
    if(k1>0x500) continue;
@@ -172,8 +172,8 @@ illegaddr0: ;
 //check also status2 here
    if( (echo[k][l+8] & cleared_bits) == 0     ) {      //st2^bits = 0?
 
-    rcvframe   = (&echo[k][l])+1;
-    rcvframe1  = (&echo[k][l])+1;
+    rcvframe   = (AMCframe_rcv_0 *) ((&echo[k][l])+1);
+    rcvframe1  = (AMCframe_rcv_1 *) ((&echo[k][l])+1);
     if((*rcvframe1).drv_addr < 4) {
      k1=(*rcvframe).src_addr;
      if(k1<0) continue;

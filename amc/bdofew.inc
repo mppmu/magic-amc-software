@@ -24,7 +24,7 @@ int bdofew(icmd, dtend, chpoint, gchpoint, npoint, nk )
  sp0=atv.tv_sec-AMCtimeoff;
  tp1=0;
  sp1=0;
- printf("start time %dsec %dusec\n" ,sp0,tp0);
+ printf("start time %ldsec %ldusec\n" ,sp0,tp0);
                                                                                       
 
 // buffer flushed at beginning of "send_command"
@@ -102,7 +102,7 @@ wait_now_ans:
     cmdbf[cmdrsnd][cmdbf[cmdrsnd][5]+6]=byte[0];
     cmdbf[cmdrsnd][cmdbf[cmdrsnd][5]+7]=byte[1];
     usleep(10000);
-    printf("resend\n" ,sp2,tp2 );
+    printf("resend  delta= %lds %6.6ldus\n" ,sp2,tp2 );
     send_command( ip, cmdbf[cmdrsnd], pb[j] );
     goto wait_now_ans;
    }
@@ -134,7 +134,7 @@ do_sleep:
  if((iok>0) && (round<ntodomin+10)) goto nextround;
  
 
- printf("b: end time  delta= %ds %6.6dus\n" ,sp2,tp2 );
+ printf("b: end time  delta= %lds %6.6ldus\n" ,sp2,tp2 );
  //sprintf(text,"end time  delta= %ds %6.6dus\n" ,sp2,tp2 );
  //log_write(fdisk, text, &ntext);
 

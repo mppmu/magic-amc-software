@@ -59,7 +59,10 @@ int fdisk, fdisk2;
 //                echaltpnt1[8][100], nechaltpnt1[8],
 //                echaltpnt2[8][100], nechaltpnt2[8],
 //                int fncact, int cntact ) ;
-void check_echo(echpnt1, nechpnt1, echpnt2, nechpnt2,
+//void check_echo(echpnt1, nechpnt1, echpnt2, nechpnt2,
+//                echaltpnt1, nechaltpnt1, echaltpnt2, nechaltpnt2,
+//                fncact, cntact ) ;
+void check_echo(echpnt1, nechpnt1, echpnt2, nechpnt2, 
                 echaltpnt1, nechaltpnt1, echaltpnt2, nechaltpnt2,
-                fncact, cntact ) ;
+                fncact, cntact, gchpoint, cleared_bits, sumgch );
 

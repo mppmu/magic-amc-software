@@ -30,7 +30,7 @@ flushagain:
    else
     ioctl(fd[k], FIONREAD, &res1);   //get # of bytes to flush
 
-    echpnt[k]=0;
+   echpnt[k]=0;
     if(res1>0) {
      if(res1>1024) res1=1023;
      res2= read(fd[k],&echo[k][echpnt[k]],res1);   //all read were "aread"
@@ -122,7 +122,7 @@ int burst(icmd, dtend, chpoint, gchpoint,  npoint, nk )
  sp0=atv.tv_sec-AMCtimeoff;
  tp1=0;
  sp1=0;
- printf("start time %dsec %dusec\n" ,sp0,tp0);
+ printf("start time %ldsec %ldusec\n" ,sp0,tp0);
 
 
 //AMC_scroll= 1. ;
@@ -270,7 +270,7 @@ update:
 
    if(towait > 90000 ) {
     towait = 90000; // 3.11.2011  work around
-    printf("endtime[%d]=%d, tanfa=%d ",i, endtime[i], tanfa);
+    printf("endtime[%d]=%ld, tanfa=%ld ",i, endtime[i], tanfa);
     printf("new towait = %d\n",towait);
    }
 
@@ -415,7 +415,7 @@ for(k=nk-1;k>=0;k--){
    else
     ioctl(fd[k], FIONREAD, &res1);   //get # of bytes to flush
 
-    if(res1>0) {
+   if(res1>0) {
      //dont printf("%d%6.6d$",sp2,tp2);
 //     printf(" k %d, IOCTL res1 %d\n",k,res1);
      if(res1>1024) res1=1023;                          //HA 1.9.08
@@ -517,7 +517,7 @@ for(k=0;k<nk;k++){
    else
     ioctl(fd[k], FIONREAD, &res1);   //get # of bytes to flush
 
-    if(res1>0) {
+   if(res1>0) {
      if(res1>1024) res1=1023;                          //HA 1.9.08
      res2= read(fd[k],&echo[k][echpnt[k]],res1);
      idebug=0;
@@ -535,7 +535,7 @@ for(k=0;k<nk;k++){
    else
     ioctl(fdalt[k], FIONREAD, &res1);   //get # of bytes to flush
 
-    if(res1>0) {
+   if(res1>0) {
      if(res1>1024) res1=1023;                          //HA 1.9.08
      res2= read(fdalt[k],&echoalt[k][echaltpnt[k]],res1);
      idebug=0;

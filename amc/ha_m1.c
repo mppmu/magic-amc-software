@@ -60,7 +60,7 @@ long get_tstamp() {
  int log_write(int fdisk, char text[],int *ntext) {
      char chstamp[20];
 
-     sprintf(chstamp,"%10d ", get_tstamp() );
+     sprintf(chstamp,"%10ld ", get_tstamp() );
      write(fdisk, chstamp, 11 );
 
      for(*ntext=0;(*ntext)<310;(*ntext)++) if(text[*ntext] == '\0') break;
@@ -161,7 +161,7 @@ int AMC_exec_pwr(int type, int soll[32], int ist[32] )
   i=gettimeofday( tv, tz);                //get real time of this action
   tp1=atv.tv_usec;
   sp1=atv.tv_sec-AMCtimeoff;
-  printf("%d s, %d us\n",sp1,tp1);
+  printf("%ld s, %ld us\n",sp1,tp1);
   for(i=0;i<32;i++) iist[i]=0;
   retcd=9;
   if( (type >= 0) || (USCMreg[2]==0) ) retcd=allstatus_USCM(  );
@@ -234,7 +234,7 @@ printf("iist[%d]=%d, soll[%d]=%d, aid=%d\n",k,iist[k],k,soll[k],aid);
        tp2=atv.tv_usec - tp1;
        sp2=atv.tv_sec-AMCtimeoff - sp1;
        if(tp2<0) {tp2+=1000000; sp2--;}
-       printf("bset1 %d s, %d ms\n",sp2,tp2);
+       printf("bset1 %ld s, %ld ms\n",sp2,tp2);
 
 //       retcd=set_USCM( so[i], i );
        retcd=set_USCM0( so[i], i );
@@ -243,7 +243,7 @@ printf("iist[%d]=%d, soll[%d]=%d, aid=%d\n",k,iist[k],k,soll[k],aid);
        tp2=atv.tv_usec - tp1;
        sp2=atv.tv_sec-AMCtimeoff - sp1;
        if(tp2<0) {tp2+=1000000; sp2--;}
-       printf("bset2 %d s, %d ms\n",sp2,tp2);
+       printf("bset2 %ld s, %ld ms\n",sp2,tp2);
       }
      }
     }
@@ -282,7 +282,7 @@ getsta: ;
   tp2=atv.tv_usec - tp1;
   sp2=atv.tv_sec-AMCtimeoff - sp1;
   if(tp2<0) {tp2+=1000000; sp2--;}
-  printf("exec_pwr %d s, %d us\n",sp2,tp2);
+  printf("exec_pwr %ld s, %ld us\n",sp2,tp2);
   return(retcd);
 }
 

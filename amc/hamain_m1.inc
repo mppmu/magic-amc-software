@@ -6,13 +6,13 @@
 //open log files
 
      AMCtime(  utime ) ;
-     sprintf(logfilename,"AMC1log_%06d_%06d.log",utime[1],utime[0]);
+     sprintf(logfilename,"AMC1log_%06ld_%06ld.log",utime[1],utime[0]);
      fdisk = open(logfilename,1);
      fdisk = creat(logfilename,0xFFFF);
 
 
      AMCtime(  utime ) ;
-     sprintf(logfilename,"AMC1log2_%06d_%06d.log",utime[1],utime[0]);
+     sprintf(logfilename,"AMC1log2_%06ld_%06ld.log",utime[1],utime[0]);
      if(AMCwritelog2 != 0) fdisk2= open(logfilename,1);
      if(AMCwritelog2 != 0) fdisk2= creat(logfilename,0xFFFF);
 

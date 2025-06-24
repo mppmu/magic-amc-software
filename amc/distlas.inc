@@ -100,7 +100,8 @@ morestringflush:
     answer[res2]=0;
     printf(" %s\n",answer);
     res0+=res3;
-    for(i=0;i<res2;i++) printf("%2.2x ",answer[i]); printf("\n");
+    for(i=0;i<res2;i++) printf("%2.2x ",answer[i]);
+    printf("\n");
 
 
     if(answer[0]== '?')  return 0;

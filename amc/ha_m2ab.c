@@ -96,6 +96,7 @@ printf(" ..CMD %d\n",cmd);
 */
          }
 
+    return 0;
 }
 
 
@@ -186,7 +187,9 @@ if ( i==-5 && j==-5 ) printf("move %d %d; act %d %d\n", panel[i][j].move_by[0],p
            {
               it = 0 ;
 //            panel[6][6].pan_stat = iq ;
-              iq = (iq++ ) % 4 ;
+//              iq = (iq++ ) % 4 ;
+              iq = iq % 4 ;
+              iq++;
 //            istat = AMC_check_gui( -1, scroll) ;
               istat = AMC_check_gui(  0, scroll) ;
               if ( istat != 0 ) return 1 ;
@@ -197,6 +200,7 @@ if ( i==-5 && j==-5 ) printf("move %d %d; act %d %d\n", panel[i][j].move_by[0],p
         }
   }  }
 //printf("stop  cmd  %d\n",cmd);
+  return 0;
 }
 
 
