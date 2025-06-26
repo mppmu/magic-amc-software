@@ -28,7 +28,7 @@ was used as container platform.
 ### SBIG Firmware
 
 * The SBIG firmware files are located in the directory
-  ```depend/firmware``` of this repository.
+  ```depend/sbig/firmware``` of this repository.
 * If You run the software inside a container, the SBIG firmware files must be
   copied to the firmware directory of the **host** system.
 * Copy all files to the firmware directory ```/lib/firmware```. 
