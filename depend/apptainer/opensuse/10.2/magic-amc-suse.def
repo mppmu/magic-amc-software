@@ -1,0 +1,66 @@
+# File: magic-amc-suse.def
+# Auth: M. Fras, Electronics Division, MPI for Physics, Munich
+# Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
+# Date: 23 May 2025
+# Rev.: 26 Jun 2025
+#
+# Build openSUSE 10.2 container for the MAGIC AMC software.
+#
+# Hints:
+# * Execute the following commands as root.
+# * Download the openSUSE 10.2 i386 ISO image from here:
+#   https://ftp5.gwdg.de/pub/opensuse/discontinued/distribution/10.2/iso/dvd/openSUSE-10.2-GM-DVD-i386.iso
+# * Mount the image openSUSE 10.2 i386 ISO image
+#   'openSUSE-10.2-GM-DVD-i386.iso':
+#   $ mount -o loop openSUSE-10.2-GM-DVD-i386.iso /mnt
+# * Create a link called 'openSUSE-10.2' to the mount directory:
+#   $ ln -s /mnt openSUSE-10.2
+# * Use Apptainer to build a sandbox container:
+#   $ apptainer build --sandbox magic-amc-suse magic-amc-suse.def
+# * Launch a shell in the (writable) container:
+#   $ apptainer shell --writable magic-amc-suse
+# * Install remaining dependencies inside the container:
+#   $ rpm -ihv --nodeps /path/to/sbig-1.1-9.i586.rpm
+#   $ rpm -ihv --nodeps /path/to/sbig-firmware-1.0-13.noarch.rpm
+#   $ rpm -ihv --nodeps /path/to/xforms-1.0-266.i586.rpm
+#   $ rpm -ihv --nodeps /path/to/xforms-devel-1.0-266.i586.rpm
+#   $ rpm -ihv --nodeps /path/to/xforms-glx-1.0-266.i586.rpm
+#   $ cp -a /path/to/libsbigcam.a /usr/local/lib/
+#   $ cp -a /path/to/libsbigcam.so /usr/local/lib/
+#   $ chown root:root /usr/local/lib/libsbigcam.*
+#   $ chmod 644 /usr/local/lib/libsbigcam.*
+#   $ cp -a /path/to/libcfitsio.a /usr/local/lib/
+#   $ chown root:root /usr/local/lib/libcfitsio.a
+#   $ chmod 644 /usr/local/lib/libcfitsio.a
+#   $ cp -a /path/to/fitsio*.h /usr/local/include/
+#   $ cp -a /path/to/longnam.h /usr/local/include/
+#   $ chown root:root /usr/local/include/fitsio*.h
+#   $ chown root:root /usr/local/include/longnam.h
+#   $ chmod 644 /usr/local/include/fitsio*.h
+#   $ chmod 644 /usr/local/include/longnam.h
+#   $ ldconfig
+# * Exit the container.
+# * Build a sif container image from the sandbox:
+#   $ apptainer build magic-amc-suse.sif magic-amc-suse
+#
+
+Bootstrap: zypper
+OSVersion: 10.2
+MirrorURL: ./openSUSE-10.2
+UpdateURL: ./openSUSE-10.2
+Include: yast2-trans-en_US yast2-bootfloppy openSUSE-release yast2-trans-stats terminfo glibc libattr popt xorg-x11-driver-input libxcrypt compat-openssl097g pax xorg-x11-libXdmcp expat gdbm gpart hfsutils zip libltdl libieee1284 xorg-x11-driver-video compat-libstdc++ ncurses-devel acl libtiff libgpg-error bzip2 cracklib pciutils fribidi gmp insserv tcpd liblcms yast2-storage-lib xorg-x11-libXt xorg-x11-libXext giflib limal xorg-x11-libXv coreutils e2fsprogs xorg-x11-libXpm gawk libgcrypt recode m4 915resolution x11-tools logrotate tcl mdadm pcsc-lite parted gnome-filesystem irqbalance yast2-theme-openSUSE procps librpcsecgss perl-XML-Writer pmtools perl-TermReadKey compat netpbm fbset glib gnutls limal-perl udev Mesa transfig limal-bootloader openldap2-client xorg-x11 wireless-tools libstdc++41-devel CheckHardware ldapcpplib dejavu libgnomecups ftgl ghostscript-fonts-std ifnteuro sudo postfix at eject gcc-c++ xlockmore libqt4-dbus-1 foomatic-filters rpm net-snmp microcode_ctl libgnomecanvas libbonoboui yast2-nfs-client yast2-control-center portmap-5beta yast2-scanner yast2-nis-client libgnomesu opensc yast2-tv yast2-samba-client yast2-repair yast2-network yast2-installation yast2-ntp-client sqlite sysvinit sax2-ident autofs scpm perl-Bootloader libpng gtk2 libqt4-x11 resmgr xorg-x11-proto-devel xorg-x11-libXdmcp-devel xorg-x11-libxkbfile-devel xorg-x11-libSM-devel xorg-x11-libXpm-devel tix libzypp vim timezone mkinitrd kernel-source perl-HTML-Parser x11-input-wacom aaa_skel yast2-schema pciutils-ids linux-kernel-headers filesystem gnome-icon-theme providers libcap libart_lgpl ash lsof xorg-x11-libICE xtermset cabextract cpp41 master-boot-code dos2unix dosfstools netcat ethtool mktemp fxload net-tools glibc-locale libnscd libgcc41 utempter mDNSResponder-lib zlib pkgconfig sysfsutils lzo libdrm xorg-x11-libSM attr dialog readline libstdc++41 bash pcre unzip blocxx module-init-tools cpufrequtils dhcpcd xdg-utils fontconfig powersave-libs libgimpprint libnetpbm initviocons minicom iputils libicu yp-tools libcom_err x11-input-synaptics xorg-x11-libxkbfile xorg-x11-libXrender boost xorg-x11-libXfixes startup-notification info usbutils bc ppp xorg-x11-libXmu xorg-x11-libXp findutils gdb gettext grep xli screen zsh sed libidn pam-config nscd SuSEfirewall2 alsa suspend ulimit xorg-x11-libXprintUtil reiserfs perl desktop-data-SuSE xdmbgrd libopencdk gpm ksymoops xaw3d psmisc libevent xosview yast2-mail-aliases tk preload update-alternatives aalib pptp perl-XML-Parser strace checkmedia perl-Digest-SHA1 psutils dmraid perl-Compress-Zlib evms mkisofs-cdrkit.1.0pre5-6 perl-URI glib2 gnome-mime-data groff inst-source-utils multipath-tools perl-gettext libgsf libqt4-qt3support xorg-x11-fonts-core xterm wget openslp perl-Crypt-SmbHash libidl numlockx lukemftp libcroco wvdial siga pwdutils orbit2 cyrus-sasl-saslauthd permissions desktop-file-utils efont-unicode evms-gui freeglut gcc glitz imlib ksh xkeyboard-config libbonobo pm-utils yast2-sound syslog-ng libqt4 xorg-x11-libX11 audit-libs libjasper file pam autoyast2 python sax2-tools powersave openmotif-libs openmotif yast2-perl-bindings yast2-qt yast2-ncurses bind-libs rsync procmail tar krb5 freetype2-devel bind-utils aaa_base xorg-x11-libs xorg-x11-devel kernel-syms a2ps telnet yast2-slp cairo dbus-1 xntp fvwm2 util-linux yast2-xml dbus-1-x11 mailx liblazy PolicyKit libgnomeprint smartmontools gconf2 gnome-keyring hplip-hpijs libgphoto2 gnome-vfs2 hwinfo 3ddiag yast2-hardware-detection libgnome suseRegister libgtkhtml yast2 yast2-pam yast2-mouse yast2-ldap yast2-irda yast2-storage libgnomeui yast2-firewall openct yast2-x11 yast2-packager yast2-kerberos-client yast2-security nfs-utils ypbind yast2-update yast2-inetd libgnomeprintui yast2-registration yast2-online-update-frontend yast2-ldap-client yast2-backup yast2-sysconfig yast2-restore yast2-country yast2-users yast2-mail yast2-profile-manager openssl yast2-sudo rrdtool cron xorg-x11-Xvnc hal-resmgr sax2 xv findutils-locate zlib-devel xorg-x11-libXau-devel xorg-x11-fonts-devel xorg-x11-xtrans-devel xorg-x11-libX11-devel fontconfig-devel xorg-x11-libXrender-devel xorg-x11-libXfixes-devel xorg-x11-libXt-devel xorg-x11-libXp-devel xorg-x11-libXprintUtil-devel cups-libs lilo perl-HTML-Tagset perl-libwww-perl xorg-x11-libX11-ccache manufacturer-PPDs sash libjpeg xorg-x11-libXau audiofile libpcap ctags patch libvolume_id fillup libmudflap41 iptables rzsz mingetty ncurses libacl xorg-x11-libfontenc joe db libzio less cpp db-utils libusb ifplugd iproute2 libstroke libqt4-sql libwmf ft2demos libmng unclutter binutils diffutils ed fam make gzip wdiff pam-modules libgssapi acpid libxml2 cyrus-sasl device-mapper hdparm tcsh kbd procinfo-18-80 sharutils libxslt scsi perl-Digest-MD4 perl-Config-Crontab esound fonts-config glibc-devel grub xinetd wvstreams liby2util atk shared-mime-info curl xdg-menu gcc41 gtk zisofs-tools yast2-core xorg-x11-fonts nfsidmap netcfg gcc41-c++ intlfnts libstdc++-devel yast2-transfer sensors smpppd tightvnc xfig suse-build-key dbus-1-glib pango deltarpm libglade2 sysconfig gail klogd yast2-iscsi-client yast2-support yast2-runlevel yast2-bluetooth yast2-power-management yast2-storage-evms yast2-bootloader yast2-online-update yast2-tune openssh librsvg openssh-askpass yast2-powertweak release-notes lvm2 autoyast2-installation gpg man libexif w3m hal xorg-x11-server sax2-libsax sax2-libsax-perl sax2-gui xorg-x11-libfontenc-devel xorg-x11-util-devel xorg-x11-libICE-devel xorg-x11-libXext-devel xorg-x11-libXv-devel xorg-x11-libXmu-devel yast2-pkg-bindings freetype2 tcpdump cpio libsmbclient cups-client kernel-default qt3 setserial valgrind
+
+
+
+%post
+
+%environment
+    export LC_ALL=C
+    export PATH=~/bin:$PATH:/usr/games
+
+%labels
+    Auth: M. Fras, Electronics Division, MPI for Physics, Munich
+    Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
+    Date: 22 May 2025
+    Rev.: 22 May 2025
+
