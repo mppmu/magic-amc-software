@@ -13,10 +13,13 @@
 #include <netdb.h>      
 #include <asm/ioctls.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 
 #include "AMCgui.h"
 #include "AMCframe.h"
 #include "HAdef_m1.h"
+#include "AMCpower.h"
+#include "amc.h"
 #include "burst_def.h"
 #include "command_vardef.h"
 #include "pwrsockets_def.h"

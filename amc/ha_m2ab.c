@@ -2,6 +2,8 @@
 
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "AMCconst.h"
 #include "AMCpanel.h"
 #include "AMCpower.h"

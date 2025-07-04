@@ -33,7 +33,7 @@ int bburst(icmd, dtend, chpoint,gchpoint,npoint, nk )
  int ipoint[n8], nbyte, idx, idebug, i2, portoralt, ihelp;
  unsigned char sentframe[8][50];
  unsigned char sentframe8[50];
- unsigned char debug[2560];
+ char debug[2560];
  ushort   crcword;
  unsigned char value[8];
 

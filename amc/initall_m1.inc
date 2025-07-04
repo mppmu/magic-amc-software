@@ -25,7 +25,7 @@ void initall_inc(int iflag) {
  int i1, j1, k1, ii, lk1;
  int steps, icmd, nroundmax, boxtot, acttot, totpan, ibreak;
  unsigned char cleared_bits;
- unsigned char tascii[256];
+ char tascii[256];
  double dscroll,dscrol2, dscrol3, dscrol4, scroll, scroll0;
  int locchpoint[n8][n150], locnpoint[n8], ipo;
  int px, py ;

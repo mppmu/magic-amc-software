@@ -6,5 +6,5 @@
  unsigned char bla[1024];
  static int prompted =0;                 //1=in prompt mode = MONITOR>
  int    kascii;
- unsigned char ascii[1024];
+ char ascii[1024];
 

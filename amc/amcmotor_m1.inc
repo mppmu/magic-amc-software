@@ -68,7 +68,8 @@ int ready_response(int ip, int nbyte) {
   long t1,t2,t12,s1,s2,s12,dt12,ds12;
 
   unsigned int icon, acon[61];
-  unsigned char st1, st2, debug[2560];
+  unsigned char st1, st2;
+  char debug[2560];
 //$$
     int j, i, k, *res, retcod, idebug, i2 ;
     unsigned char lbuf[256];
@@ -295,7 +296,8 @@ endlisten:
   int get_response1alt( int globalchain, unsigned char lbufout[256], int* res0, int resin){
   long t1,t2,t12,s1,s2,s12,dt12,ds12;
   unsigned int icon, acon[61];
-  unsigned char st1, st2, debug[2560];
+  unsigned char st1, st2;
+  char debug[2560];
 //$$
     int j, i, k, *res, retcod, idebug, i2 ;
     unsigned char lbuf[256];
@@ -838,7 +840,7 @@ int send_command(int ip, unsigned char *comd, AMCpanel* ptr ) {
   int        res,nofbyte,nread,j,k, res0,res1,res2,res3,iloop,ii,idebug,i2,it;
   unsigned char rescmd[256], newcmd[1200], *comd0;
   ushort   crcword;
-  unsigned char debug[2560];
+  char debug[2560];
   int  *word;
   unsigned char byte[4];
 

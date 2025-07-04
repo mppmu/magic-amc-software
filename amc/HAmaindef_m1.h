@@ -15,7 +15,7 @@
     int po0, po1, bo1;
     long utime[5];
 
-    unsigned char Rascii[512], logfilename[60];                // RS232 text
+    char Rascii[512], logfilename[60];                // RS232 text
     int nascii;
 
     float u, s, b[4], d[4];

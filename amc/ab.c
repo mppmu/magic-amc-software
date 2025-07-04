@@ -18,6 +18,7 @@
 #include "AMCpanel.h"
 #include "AMCpower.h"
 #include "AMCgui.h"
+#include "amc.h"
 
 int  PWR_read(AMCpower  p[32])
 {

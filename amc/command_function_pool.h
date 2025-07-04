@@ -1,30 +1,36 @@
 // // // // AB?!  added tons of missing explicit return statements (else return is value is undefined !!!!!!)
 
+// CAUTION:
+// - Missing third argument for function "send_command" set to NULL in
+//   functions do_it, do_it_slow, and do_it_timed.
+// - Missing first argument for function "get_response1" set to 0 in functions
+//   do_it, do_it_slow, and do_it_timed.
+
 int do_it( unsigned char *addr, int cmdxxxx ) {
     int retcod,retcomd;
-    retcod=send_command( addr, cmdbf[cmdxxxx ] );
+    retcod=send_command( *addr, cmdbf[cmdxxxx ], NULL );
     if(retcod<0) printf("do_it retcod %d\n",retcod);
     usleep(n5000);
 //  retcomd=get_response1alt( lbufalt, &res, resin[cmdxxxx]);
-    return(get_response1( lbuf, &res, resin[cmdxxxx ]));
+    return(get_response1( 0, lbuf, &res, resin[cmdxxxx ]));
  }
 
 int do_it_slow( unsigned char *addr, int cmdxxxx ) {
     int retcod,retcomd;
-    retcod=send_command( addr, cmdbf[cmdxxxx ] );
+    retcod=send_command( *addr, cmdbf[cmdxxxx ], NULL );
     usleep(3000000);
  printf("do_it_slow retcod %d \n",retcod);
 //  retcomd=get_response1alt( lbufalt, &res, resin[cmdxxxx]);
-    return(get_response1( lbuf, &res, resin[cmdxxxx ]));
+    return(get_response1( 0, lbuf, &res, resin[cmdxxxx ]));
  }
 
 int do_it_timed( unsigned char *addr, int cmdxxxx, long micsec ) {
     int retcod,retcomd;
-    retcod=send_command( addr, cmdbf[cmdxxxx ] );
+    retcod=send_command( *addr, cmdbf[cmdxxxx ], NULL );
     usleep(micsec);
  printf("do_it_timed retcod %d micsec %ld \n",retcod,micsec);
 //  retcomd=get_response1alt( lbufalt, &res, resin[cmdxxxx]);
-    return(get_response1( lbuf, &res, resin[cmdxxxx ]));
+    return(get_response1( 0, lbuf, &res, resin[cmdxxxx ]));
  }
 
 int do_query( unsigned char *addr, int* motpos ) {

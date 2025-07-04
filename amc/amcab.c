@@ -25,15 +25,18 @@
 #include "AMCpower.h"
 #include "AMCgui.h"
 #include "CC.h"
+#include "amc.h"
 #include "st7.h"
 #include "st7temp.c"
 #include "fitsio.h"
 #include <pthread.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <dirent.h>
 
@@ -158,10 +161,10 @@ int g_ret = 0;                 //some dummy return flag for debug
 int g_pictcnt    = 0;
 int g_pict_expos = 0;
 
-unsigned long g_pwr_slp = 0;   //actual sleep until next power check
-unsigned long isec, iusec, isec0, iusec0, isec1, iusec1;
-unsigned long idlsec;
-unsigned long g_ccisec, g_cciusec;
+long g_pwr_slp = 0;   //actual sleep until next power check
+long isec, iusec, isec0, iusec0, isec1, iusec1;
+long idlsec;
+long g_ccisec, g_cciusec;
 
 #define LOGLEN 1000
 long g_numstr = 0;
@@ -633,7 +636,7 @@ void *Power_th(void *threadid)
         nominal[i] = power[j].nominal = power[j].request;
         status[i] = power[j].actual;
       }
-      g_pwr_ret = AMC_exec_pwr(0, &nominal, &status); //query the status
+      g_pwr_ret = AMC_exec_pwr(0, nominal, status); //query the status
       if (g_pwr_ret == 0)
         if (g_pwr_stat == 0) g_pwr_stat = 1; //flag we know about power ..
 
@@ -653,7 +656,7 @@ void *Power_th(void *threadid)
           nominal[i] = power[j].nominal = power[j].request;
           status[i] = power[j].actual;
         }
-        g_pwr_ret = AMC_exec_pwr(1, &nominal, &status);
+        g_pwr_ret = AMC_exec_pwr(1, nominal, status);
 
         if (g_pwr_ret == 0) {
           if (g_pwr_stat == 0) g_pwr_stat = 1; //flag we know about power ..
@@ -685,7 +688,7 @@ void *Power_th(void *threadid)
     nominal[i] = power[j].nominal = power[j].request;
     status[i] = power[j].actual;
   }
-  g_pwr_ret = AMC_exec_pwr(1, &nominal, &status); //make sure everything as requested ...
+  g_pwr_ret = AMC_exec_pwr(1, nominal, status); //make sure everything as requested ...
 
   sprintf(lstr, "end power thread");
   put_logfile(LOG_PWR, 0, lstr);
@@ -1958,7 +1961,7 @@ void action_cb(FL_OBJECT *ob, long cmd)
   int tmp_pan[17][17] = {289 * 0};
   int tmp_mov[17][17] = {289 * 0};
   int moveflg;
-  unsigned long isec, isec0, iusec, iusec0;
+  long isec, isec0, iusec, iusec0;
   char str[20], xstr[20];
   char lstr[LOGLEN];
   long jcmd;
@@ -6743,7 +6746,7 @@ void *FromCC_th(void *threadid)
             }
             else {
 
-              snprintf (lstr, LOGLEN, "Server: connect from host %d, port %hd  on %d %d",
+              snprintf (lstr, LOGLEN, "Server: connect from host %s, port %hd  on %d %d",
                         inet_ntoa (clientname.sin_addr),
                         ntohs (clientname.sin_port), i, new);
               put_logfile(LOG_CC_, 0, lstr);

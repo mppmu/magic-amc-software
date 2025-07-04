@@ -10,7 +10,7 @@ int bdofew(icmd, dtend, chpoint, gchpoint, npoint, nk )
  int ipoint[n8], nbyte, idx, alt, ip, iip, retcod, iok, round, k, wtansw_cnt;
  unsigned char sentframe[8][50];
  int  idebug, i2;
- unsigned char debug[2560];
+ char debug[2560];
  ushort   crcword;
  unsigned char value[8];
 

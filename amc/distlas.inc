@@ -3,7 +3,7 @@
 
  int AMC_exec_dist(int cmd )                         //$$$
  {
-  unsigned char rescmd[256], answer[256];
+  char rescmd[256], answer[256];
   int nn, retcod;
 
   printf("AMC_exec_dist( %d )\n",cmd);
@@ -55,9 +55,7 @@
 
 //-----------------------------------------------------------------------------------
 
- int send_string232(text, n0, answer )                         //$$$
- int n0;
- unsigned char text[n0], answer[256];
+ int send_string232(char *text, int n0, char answer[256] )                         //$$$
  {
   int         i,j,res,res0,res1,res2,res3, chain, ierr;
   unsigned char echo[2048];                         //ok

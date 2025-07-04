@@ -21,7 +21,7 @@
 
 void flush_buffers() {
  int k, res1, res2, idebug, i2;
- unsigned char debug[2560];
+ char debug[2560];
 
  for(k=0;k<nport;k++){
 flushagain:
@@ -74,7 +74,8 @@ int burst(icmd, dtend, chpoint, gchpoint,  npoint, nk )
  unsigned char sentframe[8][50], *regloc;
  unsigned char sentframe8[50];
 
- unsigned char value[8], debug[2560], lstr[200];
+ unsigned char value[8];
+ char debug[2560], lstr[200];
  ushort   crcword;
  double scroll;
  long ddtend;

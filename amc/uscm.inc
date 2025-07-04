@@ -226,7 +226,7 @@ int allstatus_USCM( )                             //$$$
 {
 //get status for all register 
 //i=0 to 3: 07f004+i --> regloc[i]
- unsigned char ascii[20], buffer[20];                      // RS232 text
+ char ascii[20], buffer[20];                      // RS232 text
  int j,k,v, n1, n11;
 
   #include "nouscm.inc"
@@ -304,7 +304,7 @@ int           i;
 //get status for register i (=0,1,2,3)
 //*regloc[i] is filled
 //i=0 to 3: 07f004+i --> regloc[i]
- unsigned char ascii[20], buffer[20];                      // RS232 text
+ char ascii[20], buffer[20];                      // RS232 text
  int j,k,v, n1;
 
   #include "nouscm.inc"
@@ -354,7 +354,7 @@ int init_USCM( text )                                    //$$$
 //internal routine
 unsigned char text[10];
 {
- unsigned char ascii[80], buffer[80];             // RS232 text
+ char ascii[80], buffer[80];             // RS232 text
  unsigned char echo[2048];
  int i,j,k, n1;
  int ret, res2, res3;
@@ -482,7 +482,7 @@ int on_USCM( channel )                                   //$$$
 //unused routine
 unsigned int channel;
 {
- unsigned char ascii[20], buffer[20];                      // RS232 text
+ char ascii[20], buffer[20];                      // RS232 text
  int i,j,k,n1;
 
   #include "nouscm.inc"
@@ -526,7 +526,7 @@ int off_USCM( channel )                                  //$$$
 //unused routine
 unsigned int channel;
 {
- unsigned char ascii[20], buffer[20];                      // RS232 text
+ char ascii[20], buffer[20];                      // RS232 text
  int i,j,k,n1;
 
   #include "nouscm.inc"
@@ -568,7 +568,7 @@ int set_USCM( pattern, part )                            //$$$
 unsigned int part;
 unsigned char pattern;
 {
- unsigned char ascii[20], buffer[20];                      // RS232 text
+ char ascii[20], buffer[20];                      // RS232 text
  int i,j,k, n1;
 
   #include "nouscm.inc"
@@ -621,7 +621,7 @@ int set_USCM0( pattern, part )                            //$$$
 unsigned int part;
 unsigned char pattern;
 {
- unsigned char ascii[20], buffer[20];                      // RS232 text
+ char ascii[20], buffer[20];                      // RS232 text
  int i,j,k, n1;
 
   #include "nouscm.inc"
@@ -673,7 +673,7 @@ int chain_USCM( chain )                                  //$$$
 unsigned int chain;
 {
  unsigned char pattern;
- unsigned char ascii[20], buffer[20];                      // RS232 text
+ char ascii[20], buffer[20];                      // RS232 text
  int i,j,k,  part, n1;
 
   #include "nouscm.inc"

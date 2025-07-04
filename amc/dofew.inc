@@ -8,7 +8,7 @@ int dofew(icmd, dtend, chpoint,gchpoint,npoint, nk )
 {
  int ipoint[n8], nbyte, idx, alt, ip, iip, retcod, iok, round, k, wtansw_cnt;
  int  idebug, i2, iflag;
- unsigned char debug[2560], lstr[200];
+ char debug[2560], lstr[200];
  unsigned char sentframe[8][50];
  ushort   crcword;
  unsigned char value[8];

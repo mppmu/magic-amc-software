@@ -3,7 +3,7 @@
     unsigned char globallbuf[4096];
     unsigned char lbuf[256];
     unsigned char cmdbf[60][40];
-    unsigned char cmdtxt[256][40];
+    char cmdtxt[256][40];
     unsigned char mcntr[2] = { 0xf0, 0xf0 };
 //  unsigned char mcntr[2] = { 0x8f, 0x8f };
     int resin[512];
