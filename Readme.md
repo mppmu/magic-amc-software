@@ -28,6 +28,24 @@ Please see the [dependencies document](Dependencies.md) for details.
   ```
   ./amc
   ```
+* The software tends to crash after displaying the graphical user interface on
+  computers with multiple cores. The reason is probably that it starts some
+  threads that are not thread-safe and can cause race conditions if they are
+  executed in parallel on different CPU cores. To overcome this problem, or at
+  least minimize its effects, the AMC software can be restricted to a single
+  core using the `taskset` command.
+  ```
+  taskset -c 0 ./amc
+  ```
+* The shell script `amc/amc.sh` automatically launches an Apptainer container,
+  changes to the directory `/home/operator/V4.50`, and starts the AMC software
+  within that container restricted to one CPU core. By copying this script to a
+  location within the `PATH` environment variable, the AMC software can simply be
+  lauched with this command:
+  ```
+  ./amc.sh
+  ```
+  Please note that this script should be run from the `operator` account.
 
 
 
