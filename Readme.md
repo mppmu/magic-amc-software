@@ -12,6 +12,8 @@ Please see the [dependencies document](Dependencies.md) for details.
 
 ## AMC Software
 
+### Building and Running
+
 * To build the AMC software, run these commands:
   ```
   cd amc
@@ -43,27 +45,65 @@ Please see the [dependencies document](Dependencies.md) for details.
   location within the `PATH` environment variable, the AMC software can simply be
   lauched with this command:
   ```
-  ./amc.sh
+  amc.sh
   ```
   Please note that this script should be run from the `operator` account.
 
 
+### Tested Features and Functions
 
-## SBIG Software
+The following points have been  tested with the AMC software built and running
+inside the 32-bit openSUSE 10.2 container. The AMC software was restricted to
+CPU core 0.
 
-* To build the SBIG software, run these commands:
+* General behavior:
+  - Compilation.  
+    *OK, with some remaining compiler warnings.*
+  - Application startup, display of GUI, termination.  
+    *OK, when restricted to one CPU core.*
+* Operation of the AMC system:
+  - Access to AMC boxes in all 8 chains.  
+    *OK*
+  - Intitialization of all mirrors.  
+    *OK*
+  - Adjustment of all mirrors.  
+    *OK*
+* Communication with other systems:
+  - Communication with CC (central control, superarehucas).  
+    *OK*
+  - Power on/off the AMC system.  
+    *OK*
+  - Power on/off the SBIG camera.  
+    *OK*
+* Operation of the SBIG camera:
+  - Switch on/off.  
+    *OK*
+  - Temperature control and reading.  
+    *OK*
+  - Setting exposure time.  
+    *OK*
+  - Take images.  
+    *OK*
+  - Save images.  
+    *OK*
+
+
+
+## SBIG Test Software
+
+* To build the SBIG test software, run these commands:
   ```
   cd sbig
   make mrproper && make all
   ```
-* To run the AMC software, cd into the `sbig` directory and run:
+* To run the SBIG test software, cd into the `sbig` directory and run:
   ```
   ./sbigab
   ```
 
 
 
-## AMC-Test Software
+## AMC Test Software
 
 The simple Python program `amc_test.py` can be used to send individual
 commands to the AMC system. It sends hexadecimal commands to the AMC controller
