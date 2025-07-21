@@ -2,7 +2,7 @@
 # Auth: M. Fras, Electronics Division, MPI for Physics, Munich
 # Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
 # Date: 19 Feb 2025
-# Rev.: 19 May 2025
+# Rev.: 21 Jul 2025
 #
 # List of files to be ignored by git.
 #
@@ -23,14 +23,25 @@
 *.pyc
 __pycache__/
 
-# Compilation products of the AMC software.
+# Compilation products of the MAGIC I AMC software.
 /amc/*.o
 /amc/amc
 /amc/amcab
 
-# Log files of the AMC software.
+# Compilation products of the MAGIC II AMC software.
+/amc2/*.o
+/amc2/amc
+/amc2/amcab
+/amc2/amp
+/amc2/amcap
+
+# Log files of the MAGIC I AMC software.
 /amc/AMC*.log
 /amc/AMC*.logall
+
+# Log files of the MAGIC II AMC software.
+/amc2/AMC*.log
+/amc2/AMC*.logall
 
 # Compilation products of the SBIG software.
 /sbig/*.o
