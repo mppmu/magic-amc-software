@@ -4,9 +4,9 @@
 # Auth: M. Fras, Electronics Division, MPI for Physics, Munich
 # Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
 # Date: 18 Feb 2025
-# Rev.: 16 May 2025
+# Rev.: 19 Aug 2026
 #
-# Python script to send a hex command to the AMC test setup to move the motor.
+# Python script to send a hex command to the MAGIC 1 AMC system.
 #
 # CAUTION: To be used with the AMC controller firmware V6 (AMContr 2.1.6) only!
 #
@@ -362,22 +362,24 @@ def amc_answer_eval(amc_answer, amc_id, sm_driver_id, pc_id, amc_cmd_bin, amc_cm
             else:
                 if verbosity >= 3:
                     print("Correct repeated command (0x{0:02X}) received from the AMC controller.".format(amc_cmd_bin[0]))
-        elif idx == 7:      # Status byte 1. See page 12 of "amc2cmd.pdf" and
-                            # "amc.h" of AMC controller firmware version 2.1.6.
-                            # The information in "amc.h" takes precedence.
+        elif idx == 7:      # Status byte 1. See section "Responses" of
+                            # "AMC1protocol.txt" and "amc.h" of AMC controller
+                            # firmware version 2.1.6. The information in
+                            # "amc.h" takes precedence.
             if verbosity >= 2:
                 print("Status byte 1: 0x{0:02X}".format(b))
                 if b & 0x01: print("    Verges error, execution of command done/tried.")
                 if b & 0x02: print("    Unknown command (inexistent cc).")
-                if b & 0x04: print("    Command rejected, nothing done (e.g. on too early move).")
+                if b & 0x04: print("    Command rejected, nothing done (on too early move/center).")
                 if b & 0x08: print("    Illegal/meaningless first parameter (word).")
                 if b & 0x10: print("    Illegal/meaningless second/other parameter (word).")
                 if b & 0x20: print("    CC and length of frame (number of params) contradicting.")
                 if b & 0x40: print("    CP and length of frame contradicting.")
                 if b & 0x80: print("    Bad driver address.")
-        elif idx == 8:      # Status byte 2. See page 12 of "amc2cmd.pdf" and
-                            # "amc.h" of AMC controller firmware version 2.1.6.
-                            # The information in "amc.h" takes precedence.
+        elif idx == 8:      # Status byte 2. See section "Responses" of
+                            # "AMC1protocol.txt" and "amc.h" of AMC controller
+                            # firmware version 2.1.6. The information in
+                            # "amc.h" takes precedence.
             if verbosity >= 2:
                 print("Status byte 2: 0x{0:02X}".format(b))
                 if b & 0x01: print("    Motor X moving.")
