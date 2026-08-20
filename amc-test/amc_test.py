@@ -4,7 +4,7 @@
 # Auth: M. Fras, Electronics Division, MPI for Physics, Munich
 # Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
 # Date: 18 Feb 2025
-# Rev.: 19 Aug 2026
+# Rev.: 20 Aug 2026
 #
 # Python script to send a hex command to the MAGIC 1 AMC system.
 #
@@ -467,9 +467,9 @@ def amc_comm(ser, verbosity):
         amc_scan_min = 0
         amc_scan_max = 255
         if len(cmd_params) >= 1:
-            amc_scan_min = int(cmd_params[0])
+            amc_scan_min = int(cmd_params[0], 0)
         if len(cmd_params) >= 2:
-            amc_scan_max = int(cmd_params[1])
+            amc_scan_max = int(cmd_params[1], 0)
         amc_scan(ser, amc_scan_min, amc_scan_max, pc_id, verbosity)
         sys.exit(0)
 
