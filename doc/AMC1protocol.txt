@@ -1,0 +1,602 @@
+PC and AMC Communication Protocol
+=================================
+
+
+This protocol contains 3 types of packet frames.
+The length of the frames should never increase beyond 256,
+while at the moment it is <=32. If this length gets bigger, the
+buffers of the receiver program in the Box have to be enlarged
+and the program adapted.
+
+
+A) Frames sent by the master
+   -------------------------
+
+   Type 1
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+
+       This type of frame is sent by the Master PC to the Slave AMC
+       box to acquire status, perform a specific command or
+       request data.
+
+
+B) Frames sent by the slave
+   ------------------------
+
+   Type 2
+       <SD><ACK><DID1><SID1><SID2><CP><SC><...DATA...><CRC16>
+   Type 3
+       <SD><NAK><DID1><SID1><SID2><CP><CRC16>
+
+
+       These two frames are sent by the Slave AMC box to the Master PC
+       as a reply to frame number 1 (see above). They can
+       be used to send a current status of either AMC or
+       Driver cards, send data on request from master, report
+       about successful commitment or failure.
+
+
+C) Addresses
+   ---------
+
+The address scheme is explained for the example of commands (frame type 1).
+For responses the meaning of DID and SID has to be reversed.
+
+
+<DID1> - ID of destination box.
+       It may have values from 0x00 to 0xff.
+       0xff is reserved for Broadcast purposes. Broadcasting is only allowed
+       for commands which do not ask for data.
+       0xf0 is taken by Master PC.
+       All the 0xfn addresses as reserved for special use.
+       The rest is distributed among AMC cards. Each AMC card has to
+       have a unique address for its whole life.
+       The next version of boxes could have the mechanism of "geographical
+       addresses", meaning that the AMC cards address is not proprietary
+       to it, but is given to it, when put into the boxes connector.
+
+<DID2> - ID of Driver card in the Box addressed by <DID1>.
+       Valid in the range from 0x00 to 0x03 (one value for each
+       of four possible cards per box). This is also a geographical address
+       given by the position in the box.
+       Value 0xFF can indicate that only the controller card addressed and
+       affected, no driver card involved by the command sent.
+
+<SID1> - Source address
+       Since the Master (PC) is the source sending the command
+       the value of <SID1> is always 0xf0.
+
+
+
+
+D) Constants
+   ---------
+
+<SD>  - Start of Frame delimiter   - 0xFB
+<SOH> - Command frame              - 0x01
+<ACK> - Acknowledgment             - 0x85
+<NAK> - Negative acknowledgment    - 0x15
+
+
+
+E) Complete enumeration of frames
+   ------------------------------
+
+1.	From Master PC to Slave Box
+  	- - - - - - - - - - - - - -
+
+<SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+fb   01   bn    dn    f0    nn  cc     data     crc1 crc2
+
+
+<DID1><DID2> - Full destination address
+
+
+<SID1> - Source address. Its value is allways 0xf0.
+
+<CP> - The number of bytes following (from <SC> [included]
+       to CRC16> [not included]). The maximum value is 247.
+
+<SC> - Code of actual command to perform.
+       Can be any number in the range from 0x00 to 0xFF.
+       0xf_ codes are reserved for special purposes.
+
+<...DATA...> - Actual data. If there is no data sent
+       the <CP> field must be 1.
+
+<CRC16> - 16 bit (two bytes) CRC of the message starting
+       at field <DID1>.
+
+
+
+2.	From Slave Box to Master PC
+  	- - - - - - - - - - - - - -
+
+<SD><ACK><DID1><SID1><SID2><CP><SC><...DATA...><CRC16>
+fb   85    f0   bn    dn   nn  cc     data     crc1 crc2
+
+<SD><NAK><DID1><SID1><SID2><CP><CRC16>
+fb   15    f0   bn    dn    nn   crc1 crc2
+
+<DID1> Full destionation address
+       always "f0" since it is the address of the master
+
+
+<SID1><SID2> Full source address. IDs of sending controller (and driver) card.
+<SID1> - ID of source Slave Box. Allowed values from 0x01 to 0xEF.
+<SID2> - ID of source Driver card, the command sent by Master
+       was addressed to.
+       Valid in the range from 0x00 to 0x03
+       Value 0xff indicates that only the controller card of the Box
+       is adressed and affected (no driver card is involved).
+
+<CP> - The number of bytes following (from <SC> [included]
+       to CRC16> [not included]). The maximum value is 247. For NAK
+       frame <CP> is always 0.
+
+<SC> - Code of the last command received (and possibly performed).
+
+<...DATA...> - Actual data.
+       The first two data bytes have to respresent the status S1 and S2
+       of the Box (and driver). For the meaning of each bit see "Responses".
+       If no further data is to be sent, the <CP> field must be 3.
+
+<CRC16> - 16 bit (two bytes) CRC of the message starting at field <DID1>.
+
+
+
+
+Commands
+--------
+
+<SC> field value for different commands.
+
+
+0x01 - Motor Relative move x command (old symbol 'MX').
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   03  01   x1 x2      crc1 crc2
+
+       x1(low byte), x2(high byte) =  signed integer X indicating the
+       number of steps to be performed in X-direction.
+
+
+
+0x02 - Motor Relative move y command (old symbol 'MY').
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   03  02   y1 y2      crc1 crc2
+
+       y1(low byte), y2(high byte) =  signed integer Y indicating the
+       number of steps to be performed in Y-direction.
+
+
+
+0x03 - Motors Relative move xy command (old symbol 'MXY').
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   05  03  x1 x2 y1 y2 crc1 crc2
+
+       x1(low byte), x2(high byte) =  signed integer X
+       y1(low byte), y2(high byte) =  signed integer Y
+       X and Y indicate the number of steps to be performed in
+       X- and Y-direction respectively.
+
+
+
+0x05 - Move to absolute xy position command (old symbol 'A').
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   05  05  x1 x2 y1 y2 crc1 crc2
+
+
+       x1(low byte), x2(high byte) =  signed integer X
+       y1(low byte), y2(high byte) =  signed integer Y
+       X and Y indicate the absolute position to which the motors
+       should move at X- and Y-direction respectively.
+
+
+
+General remark to the internal bookkeeping of coordinates in the drivers:
+The x- and y-coordinates are updated in the moment a (one) step is 
+performed.
+
+
+
+0x07 - Center command (old symbol 'C').
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  07              crc1 crc2
+
+       Centers both motors.
+       (Does not work if only one motor is present or working.)????
+
+
+
+0x09 - Box reset command (old symbol 'R')
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    ff    f0   01  09              crc1 crc2
+
+       The controller card and all driver cards of a box will be reset.
+       The value of the <DID2> field is ignored.
+       The box sends the ACK-/NAK-answer-frame before resetting starts.
+       The command takes roughly between 400 ms and 700 ms.
+       Sets laser off. Kills the movement of the motors.
+       Keeps the absolute x- y-coordinates of the motors.
+
+
+
+0x0A - Driver reset command (old symbol 'RD').
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  0A              crc1 crc2
+
+       The driver card addressed will be reset.
+       The box sends the ACK-/NAK-answer-frame before resetting.
+       The command takes roughly between 400 ms and 700 ms.
+       Sets laser off. Kills the movement of the motors.
+       Keeps the absolute x- y-coordinates of the motors.
+
+
+
+
+0x0C - Stop motor movement (old symbol 'K').
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  0C              crc1 crc2
+
+       x- and y-coordinates in the bookkeeping are (already) updated
+       and therefore correct.
+
+
+
+
+0x0E - Laser On command (old symbol 'L+').
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  0E              crc1 crc2
+
+       Switches the laser on
+
+
+
+
+0x0F - Laser Off command (old symbol 'L-').
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  0F              crc1 crc2
+
+       Switches the laser off
+
+
+
+
+0x11 - Read  frequency (old symbol 'FR')
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  11              crc1 crc2
+
+
+
+
+0x12 - Write frequency (old symbol 'FW')
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   03  12  f1 f2       crc1 crc2
+
+       f1(low byte), f2(high bytye) =  signed integer F the frequency to be set.
+
+
+
+0x14 - Read working current (old symbol 'WR')
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  14              crc1 crc2
+
+
+
+
+0x15 - Write working current (old symbol 'WW')
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   03  15  w1 w2       crc1 crc2
+
+       w1(low byte), w2(high bytye) =  signed integer W the working current
+       to be set.
+
+
+
+
+0x17 - Read holding current (old symbol 'HR')
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  17             crc1 crc2
+
+
+
+
+0x18 - Write holding current (old symbol 'HW')
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   03  18  h1 h2       crc1 crc2
+
+       h1(low byte), h2(high bytye) =  signed integer H the holding current
+       to be set.
+
+
+
+
+0x1A - Update the motors absolute x and y position from EEPROM and
+       send the values to the master (symbol 'Y')
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  1A              crc1 crc2
+
+
+
+0x1B - Store the motors absolute x and y position in EEPROM and
+       send the values to the master (symbol 'S')
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  1B              crc1 crc2
+
+       This is useful command to keep current motors positions in
+       case of a planned power off of a box.
+
+
+
+
+0x1C - Update the absolute x and y position for all 4 motors from EEPROM and
+       send the value to the master (no symbol)
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    ff    f0   01  1C              crc1 crc2
+
+
+
+
+0x1D - Store the absolute x and y position for all 4 motors from EEPROM and
+       send the value to the master (no symbol)
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    ff    f0   01  1D              crc1 crc2
+
+
+
+
+0x1F - Request for different parameters (old symbol 'G')
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    ff    f0   01  1F              crc1 crc2
+
+       Asks for temperature, humidity sensor value, current,
+       voltage 1, voltage 2, and logics voltage.
+
+
+
+0x21 - Query motor abs pos (old symbol Z)
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  21             crc1 crc2
+
+0x22 - Set X/Y coordinates values (old symbol )
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   05  22  x1 x2 y1 y2 crc1 crc2
+
+       x1(low byte), x2(high byte) =  signed integer X
+       y1(low byte), y2(high byte) =  signed integer Y
+       X and Y indicate the absolute position to which the
+       internal coordinate variables should be set.
+
+0x30 - Set motor power off.
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  30              crc1 crc2
+
+       Attention: Issuing this command switches off
+       the working current and the holding current. Therefore the track
+       keeping of the absolute positions of the motors could be lost,
+       because the motors may move by them selfs or any other outer force!
+       USE THIS COMMAND FOR TEST REASON ONLY!
+
+
+
+0x31 - Set motor power on.
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  31              crc1 crc2
+
+       Issuing this command switches on the current of the motors.
+       But usually one does not need the command, because each
+       move or center command will switch on the power automatically.
+       USE THIS COMMAND FOR TEST REASON ONLY!
+
+
+
+0xFD - Jump to Boot Section.
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    ff    f0   01  FD              crc1 crc2
+
+       Prepares switching from "normal" Box program to the Boxes bootloader.
+       After issuing this command a Jump to Boot section is initiated
+       and performed, if some (defined) further bytes are received.
+       Normally this command should be issued by a special (Bootloading)
+       program with the intention to load a "normal" Application Program.
+       If the frame is incorrect, a negative response (NAK) is sent. For
+       a syntactically correct frame NO positive response (ACK) is sent.
+
+
+
+
+0xFE - Send version number
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    dn    f0   01  FE              crc1 crc2
+
+       Controller and Driver have each a version number for theit program.
+       Therefore: dn = ff for the controller, dn =  00, 01, 02, 03 for
+       the drivers. Send 2 byte version number.
+
+
+
+0xFF - Resend latest (previous) answer frame (symbol ' ')
+
+       <SD><SOH><DID1><DID2><SID1><CP><SC><...DATA...><CRC16>
+        fb   01   bn    ff    f0   01  FF              crc1 crc2
+
+
+
+
+
+Responses
+---------
+Responses arrive within 5 ms at most, usually within 1 ms.
+
+Note: If a command, which expects data bytes in response
+(excluding status 1/2 bytes) AMC card will send only
+status 1/2 bytes in case the command deals with
+SM driver card and the latter is busy. Also if a command
+deals with all SM driver cards and expects data from each
+card in single response, only status 1/2 bytes will be sent
+if any of SM driver cards is busy.
+
+
+
+Negative Answers: NAK
+
+For any value of <SC> ("cc") the response is as follows:
+
+       <SD><NAK><DID1><SID1><SID2><CP><CRC16>
+        fb   15   f0    bn    dn   00  crc1 crc2
+
+       This answer means that the Box/Driver received a frame with
+       CRC error. All items received by the box are in doubt, even the
+       address.
+       No action is taken except from the sending of the negative answer.
+
+
+
+
+Positive Answers; ACK
+
+This answer means that the Box/Driver received a frame without CRC error.
+Therefore we assume that there was no communicsation problem and the frame
+received is identical to the frame sent.
+
+The responses differ in length depending on the value cc in the <SC> field.
+The <DATA> field can be 2, 4, 6, 14, or 18 bytes long:
+
+There are two s1 and s2 status response bytes which are described below
+
+       s1 describes the meaningfullness of the command this answer belongs 
+          to and
+       s2 givs information about the status of the motors and the laser.
+       The respective bits when set mean:
+
+       s1: bit 0: verges error, execution of command done/tried
+           bit 1: unknown command (inexistent cc)
+           bit 2: command rejected, nothing done (on too early move/center)
+           bit 3: illegal/meaningless first parameter (word)
+           bit 4: illegal/meaningless second/other parameter (word)
+           bit 5: cc and length of frame (number of params) contradicting
+           bit 6: cp and length of frame contradicting
+           bit 7: bad driver address
+
+Comment on bit 5: the command needs eg. 2 parameters, but only one was sent.
+        on bit 6: the reading of the frame was terminated by timeout, but
+                  the CRC16 was correct.
+                  Example: only one parameter was sent, but cp indicates two.
+                  Depending on cc the error is: cp is wrong and should be one
+                  or not enough parameters sent (bit 5 ha also to be set).
+
+       s2: bit 0: x motor: moving
+           bit 1: y motor: moving
+           bit 2: x motor: direction up
+           bit 3: y motor: direction up
+           bit 4: x motor: in endswitch
+           bit 5: y motor: in endswitch
+           bit 6: laser on
+           bit 7: no response from driver card/ serious hardware problem
+
+Comment on bits 2 and 3: If the motor(s) is not moving (bit 0/1=0)
+                  bit 2/3 indicate the direction the motor was moving latest.
+
+
+Response for commands: 0x01, 0x02, 0x03, 0x05, 0x07, 0x09, 0x0A, 0x0C,
+                      0X0E, 0X0F, 0x12, 0x15, 0x18, 0x22, 0x30, 0x31, 0xFE
+
+       <SD><ACK><DID1><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb   85   f0    bn    dn   03  cc   s1 s2      crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+
+
+Response for commands: 0x11, 0x14, 0x17
+
+       <SD><ACK><SID1><DID1><DID2><CP><SC><...DATA....><CRC16>
+        fb   85   f0    bn    dn   05  cc  s1 s2 d1 d2 crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       d1(low byte), d2(high bytye) =  signed integer D indicating the
+       value of the respective parameter
+
+
+Response for commands: 0x1A, 0x1B, 0x21
+
+       <SD><ACK><SID1><DID1><DID2><CP><SC><......DATA......><CRC16>
+        fb   85   f0    bn    dn   07  01  s1 s2 x1 x2 y1,y2 crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       x1(low byte), x2(high byte) =  signed integer X the x position
+       y1(low byte), y2(high byte) =  signed integer Y the y position
+
+
+Response for commands: 0x1C, 0x1D
+
+       <SD><ACK><SID1><DID1><DID2><CP><SC>
+        fb   85   f0    bn    ff   13  01
+       <.............................DATA...................><CRC16>
+        s1s2x11x12y11y12x21x22y21y22x31x32y31y32x41x42y41y42  crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       xi1(low byte), xi2(high bytye) =  signed integer Xi the xi position
+       yi1(low byte), yi2(high bytye) =  signed integer Yi the yi position
+
+
+Response for commands: 0x1F
+
+       <SD><ACK><SID1><DID1><DID2><CP><SC>
+        fb   85   f0    bn    ff   0F  01
+       <.................DATA...................><CRC16>
+        s1s2t11t12h11h12i11i12v11v12s11s12l11l12  crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       t11(low byte), t12(high bytye) = unsigned integer T for Temperature
+       h11(low byte), h12(high bytye) = unsigned integer H for Humidity
+       i11(low byte), i12(high bytye) = unsigned integer I for Current
+       v11(low byte), v12(high bytye) = unsigned integer V for Supply voltage
+       s11(low byte), s12(high bytye) = unsigned integer S for Secondary Supply V
+       l11(low byte), l12(high bytye) = unsigned integer L for Logic voltage
+
+
+Reponse for commands: 0xFF
+
+       Response for this command is to resubmit the last
+       NAK/ACK response sent previously. The master knows, what the
+       frame resent would be the response to.
+
+
+
+
+
+
+
+
+
+
+
+
+

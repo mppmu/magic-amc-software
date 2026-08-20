@@ -1,0 +1,837 @@
+\begin{verbatim}
+PC and Slave Communication Protocol for MAGIC II
+================================================
+                                             (by Davit Hakobyan, Yerevan)
+
+This protocol contains 3 types of packet frames.
+The length of the frames should never increase beyond 256,
+while at the moment it is <=32. If this length gets bigger, the
+buffers of the receiver program in the Box have to be enlarged
+and the program adapted.
+
+
+A) Frames sent by the master [Commands]
+   ------------------------------------
+
+   Type 1
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+
+       This type of frame is sent by the Master PC to the Slave (Stepping Motor 
+       Driver (SMD) or Distribution Box) 
+       board to acquire status, perform a specific command or request data.
+
+
+B) Frames sent by the slave [Responses]
+   ------------------------------------
+
+   Type 2
+       <SD><ACK><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+   Type 3
+       <SD><NAK><DID1><DID2><SID1><SID2><CP><CRC16>
+
+
+       These two frames are sent by the Slave (SMD or Box) to the Master PC
+       as a reply to frame number 1 (see above). They can
+       be used to send the current status of SMD or Box,
+       send data on request from master, report
+       about successful commitment or failure.
+
+
+
+C) Addresses
+   ---------
+
+The address scheme is explained for the example of commands (frame type 1).
+For responses the meaning of DID and SID has to be reversed.
+
+
+<DID1> - Low byte of ID of the destination node.
+         
+         SMD may have ID from 0x8000 to 0x83ff. Box from 0x8800 to 0x8900
+         0x8f8f is taken by Master PC.
+
+         All slaves have also a broadcast ID (0x8f00), which is the same for all
+         SMD or Boxes. This will help to obtain the slave's unique ID by issuing 
+         a special command using a general ID. For doing that only one slave may
+         be in the network; otherwise all the simultaneous responses will
+         disturb eachother.
+
+         Addresses above 0x8f8f are reserved for special use. 
+
+<DID2> - High byte of ID of the destination node.
+
+<SID1> - Low byte of ID of the source node.
+
+<SID2> - High byte of the ID of the source node.
+
+Since the Master (PC) is the source sending the command
+         the value of <SID1><SID2> is always "8f8f".
+In responses <DID1><DID2> is always "8f8f".
+
+
+
+
+D) Constants
+   ---------
+
+<SD>  - Start of Frame delimiter   - 0xFB
+<SOH> - Command frame              - 0x01
+<ACK> - Acknowledgment             - 0x85
+<NAK> - Negative acknowledgment    - 0x15
+
+
+
+
+E) Complete enumeration of frames
+   ------------------------------
+
+1.	From Master PC to Slave
+  	- - - - - - - - - - - -
+
+<SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+fb   01   d1    d2    8f    8f    nn  cc     data     crc1 crc2
+
+
+<DID1><DID2> - Full destination address
+
+
+<SID1><SID2> - Source address. Its value is allways 0x8f8f.
+
+<CP> - The number of bytes following (from <SC> [included]
+       to CRC16> [not included]). The maximum value is 247.
+
+<SC> - Code of actual command to perform.
+       Can be any number in the range from 0x00 to 0xff.
+       0xf_ codes are reserved for special purposes.
+
+<...DATA...> - Actual data. If there is no data sent
+               the <CP> field must be 1.
+
+<CRC16> - 16 bit (two bytes) CRC of the message starting
+          at field <DID1>.
+
+
+
+2.	From Slave to Master PC
+  	- - - - - - - - - - - -
+
+<SD><ACK><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+fb   85   8f    8f    d1    d2    nn  cc     data     crc1 crc2
+
+<SD><NAK><DID1><DID2><SID1><SID2><CP><CRC16>
+fb   15   8f    8f    d1    d2    nn  crc1 crc2
+
+<DID1><DID2> - Full destionation address
+               always "8f8f" since it is the address of the master
+
+
+<SID1><SID2> - Full source address. IDs of sending slave.
+               Valid from 0x8000 to 0x83ff
+<SID1> - Low byte.
+<SID2> - High byte. 
+
+<CP> - The number of bytes following (from <SC> [included]
+       to CRC16> [not included]). The maximum value is 247. For NAK
+       frame <CP> is always 0.
+
+<SC> - Code of the last command received (and possibly performed).
+
+<...DATA...> - Actual data.
+               The first two data bytes respresent the status S1 and S2 of the
+               Slave. For the meaning of each bit see "Responses".
+               If no further data is to be sent, the <CP> field must be 3.
+
+<CRC16> - 16 bit (two bytes) CRC of the message starting at field <DID1>.
+
+
+
+
+Commands
+--------
+
+<SC> field value for different commands.
+
+
+0x01 - Motor Relative move command. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    03  01   x1 x2      crc1 crc2
+
+       x1(low byte), x2(high byte) =  signed integer X indicating the
+       number of steps to be performed.
+
+0x07 - Center command. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  07              crc1 crc2
+
+0x08 - Center command 2 (SMD) [new centre]
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  08              crc1 crc2
+
+       This center command should provide a faster centering procedure. The 
+       center position, as a results of 0x07 or 0x08 commands, may differ. 
+       The center is found with help of magnetic sensors.
+
+0x09 - SMD/Box reset command. 
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  09              crc1 crc2
+
+       The slave processer will be reset.
+       ACK-/NAK-answer-frame is sent before resetting starts.
+       The command takes roughly 450 ms.
+
+
+0x0C - Stop motor movement. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  0C              crc1 crc2
+
+
+0x11 - Read  frequency. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  11              crc1 crc2
+
+
+0x12 - Write frequency. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    03  12  f1 f2       crc1 crc2
+
+       f1(low byte), f2(high bytye) =  signed integer F the frequency to be set.
+       Valid frequency range: 300Hz to 1200Hz. This is a subject to change.
+
+
+0x14 - Read  working current. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  14              crc1 crc2
+       Current is read in milliamperes.
+
+
+0x15 - Write working current. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    03  15  i1 i2       crc1 crc2
+
+       i1(low byte), i2(high bytye) =  unsigned integer I the current to be set.
+       Current is written in milliamperes. The working current range
+       can be from 700 to 800 mA.
+
+
+0x17 - Read  holding current. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  17              crc1 crc2
+       Current is read in milliamperes.
+
+
+0x18 - Write holding current. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    03  18  i1 i2       crc1 crc2
+
+       i1(low byte), i2(high bytye) =  unsigned integer I the current to be set.
+       Current is written in milliamperes. The holding current range
+       can be from 40 to 700 mA.
+
+
+0x1F - Read humidity and temperature. (SMD/Box)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  1F              crc1 crc2
+
+       Asks for temperature and humidity sensor values.
+
+
+0x21 - Query: Read motor position value from variable stored in SDRAM. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  21              crc1 crc2
+       
+       Reads the signed integer value which indicates motor's
+       current position (steps). This value is preserved during SMD reset.
+       At start up the position variable contains arbitrary value. Normally
+       a "center" command should be issued to find the center and set the
+       position variable to 0.
+
+0x22 - Write motor new position value to variable stored in SDRAM. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    03  22  p1 p2       crc1 crc2
+
+       p1(low byte), p2(high bytye) =  signed integer p the new value 
+       of motor position.   
+
+
+0x23 - Read motor position value from variable stored in EEPROM. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  23              crc1 crc2
+       
+       Reads the signed integer value which indicates motor's
+       position saved in EEPROM last time. In this case the position variable
+       kept in SDRAM is updated by EEPROM value. The variable which
+       holds the phase is also updated by value from EEPROM.
+
+
+0x24 - Write motor position value to variable stored in EEPROM. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  24   none       crc1 crc2
+
+       Writes the current position value into EEPROM.
+       The phase value is also stored in EEPROM. 
+
+
+0x30 - Set motor power off. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  30              crc1 crc2
+
+       Attention: Issuing this command switches off
+       the working current and the holding current. Therefore the track 
+       keeping of the absolute positions of the motors could be lost, 
+       because the motors may move by them selfs or any other outer force!
+       USE THIS COMMAND FOR TEST REASON ONLY!
+
+
+0x31 - Set motor power on. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  31              crc1 crc2
+
+       Issuing this command switches on the current of the motors.
+       But usually one does not need the command, because each
+       move or center command will switch on the power automatically.
+       USE THIS COMMAND FOR TEST REASON ONLY!
+
+0x40 - Scan position sensors. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  40              crc1 crc2
+
+       Scans the four magnetic sensors over the full range.
+       The motor moves to the lower endswitch, reads the sensors,
+       then moves 100 steps and read the sensors again, and so on until
+       the upper endswitch is reached
+       This command is for test mode only and later will be removed from the 
+       code.
+       IMPORTANT: After receiving this command the SMD will wait for
+       4 seconds and will reply in ascii mode (no protocol is used). During 
+       scanning only stop motor command will be available which will result in 
+       breaking the scan operation. 
+       All other commands will be rejected by SMD during scan.
+       USE THIS COMMAND FOR TEST REASON ONLY!
+
+0x41 - Reads four magnetic sensors' values. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  41              crc1 crc2
+
+       The magnetic sensors are Hall-probes. Their Hall-current
+       is digitized by an ADC.
+
+       The values of the four magnetic sensors are sent to the Master.
+       Each sensor will send a word (2 bytes). 8 bytes in total
+       This command is rejected during motor move.
+       Due to averaging the Master should wait at least 5 ms for the answer.
+       This may be a subject to change in future.
+       
+       The magnetic sensors' values are averaged over 16 reads.
+       To make use of the precision of the average (better than one ADC unit) 
+       the averaged value is multiplied by a factor N such that the
+       precision is at least one tenth of an ADC unit.
+       Since we have only 16-bit integer arithmetic (avoid overflow!)
+       the word sent is constructed by the following formula:
+
+       [adc_val_sum_i / average] * N +[N * (adc_val_sum_i % average)] / average
+
+       where:
+       adc_val_sum_i = sum of 'average' reads of the i-th sensor's ADC value
+       average       = 16 (reads).
+       N             = 70 (precision)
+
+
+0x42 - Query reset count. (SMD/Box)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  42              crc1 crc2
+
+       By sending this command Master asks for the reset counter value. This
+       counter is a 16 bit unsigned integer which is never initialized. 
+       During every reset this counter is incremented and it is the 
+       responsibility of the Master to keep track of its changes (to calculate 
+       the number of resets). Initially the S2B7 bit (reset flag of status 2) is
+       set. After issueing the "Query reset count" command the S2B7 is cleared. 
+       As a response to this command the slave sends not only the 2 byte couter
+       but also one additional byte which defines the source of the latest 
+       reset. After the response to this command this byte is set to 0. For more
+       information on the reset source options look at the "Responses" section.
+
+0x43 - Query motor full run length and values of magnetic sensors 
+       at the endswitch positions. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  43              crc1 crc2
+
+       In response to this commands the SMD will send 2 bytes word of the
+       actual length of the actuator's full run (from lower to upper endswitch)
+       as well as 8 additional words which will contain the magnetic sensors' 
+       values of lower and upper endswitches respectively. The magnetic sensors'
+       values at the endswitches are averaged by a factor of 16. In order to 
+       send one digit after the decimal point (as a result of averaging) which
+       will be contained in the same 2 bytes for each sensor, the word is 
+       constructed with the following formula:
+
+       [adc_val_sum_i / average] * N +(N * [adc_val_sum_i % average)] / average
+
+       where:
+       adc_val_sum_i = sum of 'average' reads of the i-th sensor's ADC value
+       average       = 16 (reads).
+       N             = 70 (precision)
+       
+       The resulting word should always be lower than 65535. The data are 
+       initialized during a 'center' command (command 0x07 only) and will 
+       otherwise be read as 0.
+
+0x44 - Read lower endswitch sensor's index and value. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  44              crc1 crc2
+
+       In response to this commands the SMD will send 3 data bytes. The first
+       byte indicates the sensor index (zero based) which is used for the lower
+       endswitch. The subsequent 2 bytes (word) present the endswitch value.
+
+0x45 - Set lower endswitch sensor's index and value. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  45  i1 u1 u2    crc1 crc2
+                                         04?
+       Master should issue this command to change the SMD's lower endswitch
+       sensor. The i1 byte is the zero based sensor index value which should be
+       used for the lower endswitch. This value must be lower than 4, otherwise
+       the command will be rejected with the "parameter out of range" bit set. 
+       This command will also be rejected during motor move. The word u2:u1 is 
+       the new endswitch value for the selected sensor. Master should wait at 
+       least 30ms before issuing the next command.
+
+       WARNING: Changing the endswitch value may result in incorrect behaviour 
+                or can cause actuator damage.
+       
+0x46 - Read upper endswitch sensor's index and value. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  46              crc1 crc2
+                                         04?
+       In response to this commands the SMD will send 3 data bytes. The first
+       byte indicates the sensor index (zero based) which is used for the upper
+       endswitch. The subsequent 2 bytes (word) present the endswitch value.
+
+0x47 - Set upper endswitch sensor's index and value. (SMD)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  47  i1 u1 u2    crc1 crc2
+
+       Master should issue this command to change the SMD's upper endswitch
+       sensor. The i1 byte is the zero based sensor index value which should be
+       used for the upper endswitch. This value must be lower than 4, otherwise
+       the command will be rejected with the "parameter out of range" bit set. 
+       This command will also be rejected during motor move. The word u2:u1 is
+       the new endswitch value for the selected sensor. Master should wait at
+       least 30ms before issuing the next command.
+
+       WARNING: Changing the endswitch value may result in incorrect behaviour 
+                or can cause actuator damage.
+
+0x60 - Laser On. (Box)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  60              crc1 crc2
+
+       As a result to this command the slave Box will switch on the laser
+       which is requested to be turned on. The LASER_ON bit of status2 byte
+       will be set. As the Box controls 4 lasers, a single Box card will
+       respond to its base address as well as to additional three addresses
+       which will follow the base address. The base address has to be a
+       multiple of 4, eg 0x8800, Addressing 8800 affects laser 01, 8801
+       affects laser 2, and so on for 8802, and 8803.
+       The status bit S2B6 is set according to the laser/address the command
+       is sent to.
+
+ 
+0x61 - Laser Off. (Box)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  61              crc1 crc2
+
+       As a result to this command the slave Box will switch off the laser
+       which is requested to be turned off. The LASER_ON bit of status2 byte
+       will be cleared. As the Box controls 4 lasers, a single Box card will
+       respond to its base address as well as to additional three addresses
+       which will follow the base address. The base address has to be a
+       multiple of 4, eg 0x8800, Addressing 8800 affects laser 01, 8801
+       affects laser 2, and so on for 8802, and 8803.
+       The status bit S2B6 is set according to the laser/address the command
+       is sent to.
+
+0x62 - Query laser state. (Box)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  62              crc1 crc2
+
+       By sending this command Master asks for to update the LASER_ON bit state
+       for a specific address. As the LASER_ON bit is updated during each 
+       command request to Box, the "Query laser state" may not be used and
+       is a subject to change in future.
+       It was foreseen to send a byte with bit 0 to 3 indicating the state
+       of the 4 lasers. It has been forgotten, i think.
+
+0xFC - Send unique ID. (SMD/Box)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  FC              crc1 crc2
+
+       Sends the slave's unique ID
+
+0xFD - Jump to Boot Section. (SMD/Box)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  FD              crc1 crc2
+
+       Prepares switching from "normal" slave's program to the bootloader.
+       After issuing this command a Jump to Boot section is initiated
+       and performed, if some (defined) further bytes are received.
+       Normally this command should be issued by a special (Bootloading)
+       program with the intention to reprogram a "normal" Application Program.
+       If the frame is incorrect, a negative response (NAK) is sent. For
+       a syntactically correct frame NO positive response (ACK) is sent.
+
+
+0xFE - Send version number. (SMD/Box)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  01   d1    d2    8f    8f    01  FE              crc1 crc2
+
+       Slaves have each a version number for its program.
+       Therefore: Send 1 byte version number.
+
+
+
+0xFF - Resend latest (previous) answer. (SMD/Box)
+
+       <SD><SOH><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb   01  d1    d2    8f    8f    01  FF              crc1 crc2
+
+
+
+
+Responses
+---------
+Responses arrive within 5 ms at most, usually within 1 ms.
+
+Note: If a response does not contain any data 
+the ACK response will contain at least two status bytes
+and the lowest value for the <CP> field for ACK frame is 3.
+
+Negative Answers: NAK
+
+For any value of <SC> ("cc") the response is as follows:
+
+       <SD><NAK><DID1><DID2><SID1><SID2><CP><CRC16>
+        fb  15   8f    8f    d1    d2    00  crc1 crc2
+
+       This answer means that the slave received a frame with
+       CRC error. All items received by the slave are in doubt, even the
+       address.
+       No action is taken except from the sending of the negative answer.
+
+
+Positive Answers; ACK
+
+This answer means that the slave received a frame without CRC error.
+Therefore we assume that there was no communication problem and the frame
+received is identical to the frame sent.
+
+The responses differ in length depending on the value cc in the <SC> field.
+
+
+There are two s1 and s2 status response bytes which always are
+       present in ACK field.
+
+       s1 describes the meaningfullness of the command this answer belongs to
+       and s2 givs information about the status of the motors and the laser. 
+       The respective bits, when set, mean:
+
+       s1: bit 0: verges error, execution of command done/tried (no more appl.)
+           bit 1: unknown command (inexistent cc)
+           bit 2: command rejected, nothing done (e.g. on too early move)
+           bit 3: illegal/meaningless first parameter (word)
+           bit 4: illegal/meaningless second/other parameter (word)
+           bit 5: cc and length of frame (number of params) contradicting
+           bit 6: cp and length of frame contradicting
+           bit 7: parameter value is out of range
+
+Comment on bit 5: the command needs eg. 2 parameters, but only one was sent.
+        on bit 6: the reading of the frame was terminated by timeout, but
+                  the CRC16 was correct.
+                  Example: only one parameter was sent, but cp indicates two.
+                  Depending on cc the error is: cp is wrong and should be one
+                  or not enough parameters sent (bit 5 has also to be set).
+
+       s2: bit 0: motor: moving
+           bit 1: motor: direction up
+           bit 2: motor: endswitch reached
+           bit 3: motor: centered
+           bit 4: SHT sensor read error
+           bit 5: multi move command: center
+           bit 6: Laser On
+           bit 7: Slave's reset
+                  (indicates recent reset and no "query watch dog" so far)
+
+
+Comment on bits 1 and 2: If the motor is not moving (bit0 = 0)
+                  bit 1 indicates the direction the motor was moving latest.
+                  If bit 1 and 2 are set, the motor is in the upper end switch.
+
+
+
+Response for commands: 0x01, 0x07, 0x08, 0x09, 0x12, 0x15, 0x18, 0x22, 0x24, 
+                       0x30, 0x31, 0x45, 0x47, 0x60, 0x61, (0x62)
+
+       <SD><ACK><DID1><DID2><SID1><SID2><CP><SC><...DATA...><CRC16>
+        fb  85   8f    8f    d1    d2    03  cc   s1 s2      crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+
+
+Response for commands: 0x11, 0x14, 0x17 (nn)
+
+       <SD><ACK><DID1><DID2><SID1><SID2><CP><SC><...DATA....><CRC16>
+        fb  85   8f    8f    d1    d2    05  nn  s1 s2 u1 u2 crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       u1(low byte), u2(high byte) =  unsigned integer U indicating the
+       value of the respective parameter
+
+
+Response for commands: 0x1F
+
+       <SD><ACK><DID1><DID1><SID1><SID2><CP><SC>
+        fb  85   8f    8f    d1    d2    07  1F
+       <.......DATA.....><CRC16>
+        s1s2h11h12t11t12  crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       h11(low byte), h12(high byte) = unsigned integer H for Humidity
+       t11(low byte), t12(high byte) = signed integer T for Temperature
+
+
+Response for commands: 0x21, 0x23 (nn)
+
+       <SD><ACK><DID1><DID2><SID1><SID2><CP><SC><...DATA....><CRC16>
+        fb  85   8f    8f    d1    d2    05  nn  s1 s2 d1 d2 crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       d1(low byte), d2(high byte) =  signed integer D indicating the
+       value of the respective parameter
+
+Response for commands: 0x40
+
+       The ascii response will be in the following format:
+       <%3u %4.1f %4.1f %4.1f %4.1f>
+       
+       EXAMPLE:
+       -------------------
+       |  0 610.6 621.3 515.0 513.2
+       |  1 591.6 641.2 516.1 513.4
+       |...
+       | 58 506.7 478.3 392.6 509.8
+       -------------------
+       
+       The first number indicates the number of moves performed 
+       (in 100 step units). The coming 4 floating point numbers
+       are the averaged values of of the 4 corresponding sensors.
+
+
+Response for commands: 0x41
+
+       <SD><ACK><DID1><DID2><SID1><SID2><CP><SC><..........DATA..............
+        fb  85   8f    8f    d1    d2    11  41  s11 s12 ms21 ms22 ms31 ms32  
+
+       .........><CRC16>
+       ms41 ms42  crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       ms11(low byte), ms12(high bytye) =  unsigned integer indicating the
+       value of the first magnetic sensor.
+       ms21(low byte), ms22(high bytye) =  unsigned integer indicating the
+       value of the second magnetic sensor.
+       ms31(low byte), ms32(high bytye) =  unsigned integer indicating the
+       value of the third magnetic sensor.
+       ms41(low byte), ms42(high bytye) =  unsigned integer indicating the
+       value of the forth magnetic sensor.
+
+
+Response for commands: 0x42
+
+       <SD><ACK><DID1><DID2><SID1><SID2><CP><SC><.....DATA.....><CRC16>
+        fb  85   8f    8f    d1    d2    06  42  s1 s2 u1 u2 b1 crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       u1(low byte), u2(high byte) =  unsigned integer D indicating the
+       reset counter value.
+       b1 is the reset source definition byte. It can have the 
+       following values:
+       
+       0x01 - Power-on Reset
+       0x02 - External Reset
+       0x04 - Brown-Out Reset
+       0x08 - Watchdog Reset
+
+Response for commands: 0x43
+
+       <SD><ACK><DID1><DID1><SID1><SID2><CP><SC>
+        fb  85   8f    8f    d1    d2    21  43
+<..................................DATA.................................><CRC16>
+ s1s2l1l2m1llm1lhm2llm2lhm3llm3lhm4llm4lhm1ulm1uhm2ulm2uhm3ulm3uhm4ulm4uh crc1/2
+
+       s1 and s2 are two status bytes described above.
+       l1(low byte), l2(high bytye) = unsigned integer length of motor's full run
+       m1ll(low byte), m1lh(high byte) = uinteger of first magnetic sensor's 
+       lower endswitch value.
+       m2ll(low byte), m2lh(high byte) = uinteger of second magnetic sensor's 
+       lower endswitch value.
+       m3ll(low byte), m3lh(high byte) = uinteger of third magnetic sensor's 
+       lower endswitch value.
+       m4ll(low byte), m4lh(high byte) = uinteger of forth magnetic sensor's 
+       lower endswitch value.
+       m1ul(low byte), m1uh(high byte) = uinteger of first magnetic sensor's 
+       upper endswitch value.
+       m2ul(low byte), m2uh(high byte) = uinteger of second magnetic sensor's 
+       upper endswitch value.
+       m3ul(low byte), m3uh(high byte) = uinteger of third magnetic sensor's 
+       upper endswitch value.
+       m4ul(low byte), m4uh(high byte) = uinteger of forth magnetic sensor's 
+       upper endswitch value.
+
+       The magnetic sensors' values at the endswitches are averaged by a factor
+       of 16. In order to send one digit after the decimal point (as a result of
+       averaging) which will be contained in the same 2 bytes for each sensor,
+       the word is constructed with the following formula:
+
+       [adc_val_sum_i / average] * N +(N * (adc_val_sum_i % average)) / average
+
+       where:
+       adc_val_sum_i - is the ith sensor's ADC value, 
+                       summed for "average" number of times.
+       average - is 16.
+       N - is 70.
+
+
+Response for commands: 0x44, 0x46 (nn)
+
+       <SD><ACK><DID1><DID2><SID1><SID2><CP><SC><....DATA.....><CRC16>
+        fb  85   8f    8f    d1    d2    05  nn  s1 s2 i1 u1 u2 crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       i1 is the sensor index which is used for the corresponding endswitch.
+       u1(low byte), u2(high byte) =  unsigned integer U presenting the
+       endswitch value for the selected sensor.
+
+
+Response for commands: 0x62
+
+       <SD><ACK><DID1><DID2><SID1><SID2><CP><SC><...DATA....><CRC16>
+        fb  85   8f    8f    d1    d2    03  62  s1 s2 crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       (actually it was foressen to send an additional byte, l1. but
+       I can't get that byte from a box.
+       l1 byte shows the state of the lasers. The lowest four bits of this byte
+       correspond to the lasers on the slave Box. Bit set to 1 tells that the
+       corresponding laser is On.)
+
+
+Response for commands: 0xFC
+
+       <SD><ACK><DID1><DID2><SID1><SID2><CP><SC><...DATA....><CRC16>
+        fb  85   8f    8f    d1    d2    05  fc  s1 s2 i1 i2 crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       i1(low byte), i2(high bytye) =  unsigned integer i indicating the
+       slave's unique ID, (the base address in case of a box).
+
+
+Response for commands: 0xFE
+
+       <SD><ACK><DID1><DID2><SID1><SID2><CP><SC><...DATA....><CRC16>
+        fb  85   8f    8f    d1    d2     04  fe  s1 s2 v1     crc1 crc2
+
+       s1 and s2 are two status bytes described above.
+       v1 =  one unsigned byte indicating the version of the software.
+
+
+Reponse for commands: 0xFF
+
+       Response for this command is to resubmit the 
+       ACK response sent latest.
+
+\end{verbatim}
+
+\newpage
+\begin{verbatim}
+
+
+
+The CRC (cyclic redundancy code) is calculated 
+according to the following routine, which has to be called for 
+each byte to be included in the CRC.
+
+e.g.
+      (ushort) crcword = 0;
+      for(k=k0;k<k1;k++) crcword = CRC16(lbuf[k], crcword);
+      CRC=crcword;
+
+
+/************************************************************************/
+/*                                                                      */
+/* ushort CDCPImpl::CRC16(uchar chByte, ushort oldCRC) const            */
+/* Description:            - Calculates CRC using the old one as well   */
+/*                           as one byte data provided.                 */
+/* Arguments:                                                           */
+/* chByte                  - Byte on which to calculate CRC.            */
+/* oldCRC                  - Old CRC                                    */
+/* Return Value:           - New CRC (16 bit).                          */
+/************************************************************************/
+
+// CRC holder initially must be set to 0
+#define DEFAULT_CRC_POLY 0x1021
+
+unsigned short CRC16(unsigned char chByte, unsigned short oldCRC)
+{
+ int  chMSB,i;
+ oldCRC ^= (unsigned short)(chByte << 8);
+ for (i = 0; i < 8; ++i)
+ {
+  chMSB = (oldCRC & 0x8000) ? TRUE : FALSE;
+  oldCRC <<= 1;
+  if (!chMSB) continue;
+  oldCRC        ^= (unsigned short) DEFAULT_CRC_POLY;
+ }
+ return oldCRC;
+}
+
+//=--------------------------------------------------------------------------
+
+
+
+
+
+
+
+\end{verbatim}
