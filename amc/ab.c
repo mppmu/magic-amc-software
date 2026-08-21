@@ -290,7 +290,7 @@ int LUT_read(AMCpanel p[17][17], int nnew)
    for (iz=0;   iz<200 && lut_zen[iz]==0; iz++);
    izmin = iz;
 
-   for (iz=199; iz>0   && lut_zen[iz]==0; iz--);
+   for (iz=199; iz>0 && lut_zen[iz]==0; iz--);
    izmax = iz;
 
    sprintf(lstr,"interpolate LUT: min, max, %d %d",izmin-100,izmax-100);
@@ -420,7 +420,7 @@ int NEW_read(AMCpanel p[17][17])
    for (iz=0;   iz<200 && lut_zen[iz]==0; iz++);
    izmin = iz;
 
-   for (iz=199; iz>0   && lut_zen[iz]==0; iz--);
+   for (iz=199; iz>0 && lut_zen[iz]==0; iz--);
    izmax = iz;
 
    sprintf(lstr,"interpolate NEW: min, max, %d %d",izmin-100,izmax-100);

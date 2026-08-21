@@ -18,10 +18,11 @@
 #include "AMCpanel.h"
 #include "AMCpower.h"
 #include "AMCgui.h"
+#include "amc.h"
 
 int  PWR_read(AMCpower  p[32])
 {
-  int i,j,k ;
+  int i,j,k;
      //default  p: 0=off, 1=on, -1=always on
 
   i = 0 ;
@@ -71,8 +72,8 @@ int  PWR_read(AMCpower  p[32])
 
 int  AMC_read(AMCpanel panel[17][17])
 {
-  int i,j,k,nchain,ip,ip2,ib,nb,nc,ic,i0,i1,i2,i3,j0,j1,j2,j3,nx ;
-  int px,py,po[3],ap[3],ps[3],ad[3],is,nmbr ;
+  int i,j,k,nchain,ip,ip2,ib,nb,nc,ic,i0,i1,i2,i3,j0,j1,j2,j3,nx;
+  int px,py,po[3],ap[3],ps[3],ad[3],is,nmbr;
   FILE* param;
   char line[1000], linepos[1000];
 
@@ -80,33 +81,33 @@ int  AMC_read(AMCpanel panel[17][17])
   float  dLaser[2], dAxis[2], dSlope[2], dConv[2];
 
 //initialize to 'undef'
-  nmbr = 0 ;
+  nmbr = 0;
   for (j=0; j<17; j++)
     for (i=0; i<17; i++) {
        panel[i][j].loc_x = panel[i][j].loc_y = panel[i][j].loc_z = 0. ;   //preset local corrections (for IF) to zero
-       panel[i][j].ix = panel[i][j].iy = panel[i][j].pnmbr = -9999 ;
-       panel[i][j].mot_stat = panel[i][j].pan_stat = STAT_DIS ;
-       panel[i][j].pan_inst =-1 ;
-       panel[i][j].pan_material =-1 ;
-       panel[i][j].act_stat = panel[i][j].box_stat = 0 ;
+       panel[i][j].ix = panel[i][j].iy = panel[i][j].pnmbr = -9999;
+       panel[i][j].mot_stat = panel[i][j].pan_stat = STAT_DIS;
+       panel[i][j].pan_inst =-1;
+       panel[i][j].pan_material =-1;
+       panel[i][j].act_stat = panel[i][j].box_stat = 0;
        if( abs(i-8)+abs(j-8) > 12 || (i==8 && j==8) || (i==7 && j==8) ) {
-          panel[i][j].pan_inst = 0 ;
-          panel[i][j].mot_stat = panel[i][j].pan_stat = STAT_NOT ;
+          panel[i][j].pan_inst = 0;
+          panel[i][j].mot_stat = panel[i][j].pan_stat = STAT_NOT;
        }
-//     panel[i][j].laser    = LAS_OFF  ;
-       panel[i][j].laser    = LAS_UDF  ;
+//     panel[i][j].laser    = LAS_OFF ;
+       panel[i][j].laser    = LAS_UDF ;
        panel[i][j].pan_grp  = (j*3 +i)%8+1;
        for (k=0; k<3; k++) {
-          panel[i][j].port[0][k]=-1 ;
-          panel[i][j].port[1][k]=-1 ;
-          panel[i][j].portflg[k]=0 ;
-          panel[i][j].addr[k]=0 ;
-          panel[i][j].cpos[k]=-1 ;
-          panel[i][j].bpos[k]= 9 ;
-          panel[i][j].temp[k]=-1 ;
-          panel[i][j].humi[k]=-1 ;
-          panel[i][j].status[k][0]= 0 ;
-          panel[i][j].status[k][1]=0 ;
+          panel[i][j].port[0][k]=-1;
+          panel[i][j].port[1][k]=-1;
+          panel[i][j].portflg[k]=0;
+          panel[i][j].addr[k]=0;
+          panel[i][j].cpos[k]=-1;
+          panel[i][j].bpos[k]= 9;
+          panel[i][j].temp[k]=-1;
+          panel[i][j].humi[k]=-1;
+          panel[i][j].status[k][0]= 0;
+          panel[i][j].status[k][1]=0;
           panel[i][j].version[k][0]= 0;
           panel[i][j].version[k][1]= 0;
           panel[i][j].err_cnt[k]= 0;
@@ -134,8 +135,8 @@ int  AMC_read(AMCpanel panel[17][17])
 //param = fopen("test_Panels_m2_general.txt","r");
   param = fopen("test_Panels_m2_general2.txt","r");
   if(param == NULL) { printf("can't open  test_Panels_m2_general2.txt \n");
-      return -1 ;
-  } 
+      return -1;
+  }
   printf("did open  test_Panels_m2_general2.txt \n");
 //  printf("did open  test_Panels_m2_general.txt \n");
   while (   fgets(line,1000,param) ) {
@@ -143,36 +144,36 @@ int  AMC_read(AMCpanel panel[17][17])
         sscanf(line, "%d  %d  %d     %d     %d     %x     %d     %d     %d     %x     %d     %d     %d     %x     %d",
                      &px,&py,&po[0],&ap[0],&ps[0],&ad[0],&po[1],&ap[1],&ps[1],&ad[1],&po[2],&ap[2],&ps[2],&ad[2],&is);
         if (is !=0) {
-           i0 = px +8 ;
-           j0 = py +8 ;
-           panel[i0][j0].ix = px ;
-           panel[i0][j0].iy = py ;
-           panel[i0][j0].pnmbr = nmbr++ ;
+           i0 = px +8;
+           j0 = py +8;
+           panel[i0][j0].ix = px;
+           panel[i0][j0].iy = py;
+           panel[i0][j0].pnmbr = nmbr++;
            for (k=0; k<3; k++) {
-              panel[i0][j0].port[0][k]=abs(po[k])-1 ;
-              panel[i0][j0].port[1][k]=abs(ap[k])-1 ;
-              panel[i0][j0].portflg[k]=0 ;
+              panel[i0][j0].port[0][k]=abs(po[k])-1;
+              panel[i0][j0].port[1][k]=abs(ap[k])-1;
+              panel[i0][j0].portflg[k]=0;
               if (po[k] <0 ) {                   //std. port disabled
-                 panel[i0][j0].portflg[k]=1 ;    //try alternate port
+                 panel[i0][j0].portflg[k]=1;     //try alternate port
                  if (ap[k]<0 )
-                    if ( k==2 ) panel[i][j].laser = LAS_NOT ; //laser does not exist; panel ok
-                    else is=-999 ;                            //disable panel
+                    if ( k==2 ) panel[i][j].laser = LAS_NOT; //laser does not exist; panel ok
+                    else is=-999;                            //disable panel
               }
-              panel[i0][j0].addr[k]=ad[k] ;
-//      printf("%x\n",ad[k]) ;
-              panel[i0][j0].cpos[k]=ps[k] ;
-              panel[i0][j0].bpos[k]=ad[2]%4 ;
+              panel[i0][j0].addr[k]=ad[k];
+//      printf("%x\n",ad[k]);
+              panel[i0][j0].cpos[k]=ps[k];
+              panel[i0][j0].bpos[k]=ad[2]%4;
            }
-           if ( is>0 )          panel[i0][j0].pan_stat = STAT_NIN  ; // not initialized  [blue]
-           else if ( is > -99)  panel[i0][j0].pan_stat = STAT_DIS  ; // not installed    [gray]
-           else                 panel[i0][j0].pan_stat = STAT_COM  ; // no communication [brown]
-           panel[i0][j0].pan_inst = is ;
+           if ( is>0 )          panel[i0][j0].pan_stat = STAT_NIN ; // not initialized  [blue]
+           else if ( is > -99)  panel[i0][j0].pan_stat = STAT_DIS ; // not installed    [gray]
+           else                 panel[i0][j0].pan_stat = STAT_COM ; // no communication [brown]
+           panel[i0][j0].pan_inst = is;
 
-           if (px*px + py*py >=49 ) panel[i0][j0].pan_material= 0 ;
-                             else   panel[i0][j0].pan_material= 1 ;
+           if (px*px + py*py >=49 ) panel[i0][j0].pan_material= 0;
+                             else   panel[i0][j0].pan_material= 1;
 
 
-           panel[i0][j0].pan_inst = is ;
+           panel[i0][j0].pan_inst = is;
   }  }  }
   fclose(param);
 
@@ -183,7 +184,7 @@ int  AMC_read(AMCpanel panel[17][17])
 //read file "Mag2PanelPos6.txt"
   param = fopen("Mag2PanelPos6.txt","r");
   if(param == NULL) { printf("can't open  Mag2PanelPos6.txt \n");
-      return -1 ;
+      return -1;
   } 
   while (fgets(linepos,1000,param) ) 
     if(linepos[0] != '#' ) {
@@ -216,35 +217,32 @@ int  AMC_read(AMCpanel panel[17][17])
 
 
 
-int  LUT_read(AMCpanel p[17][17],int nnew)
+int LUT_read(AMCpanel p[17][17], int nnew)
 {
 // read LUT; interpolate between not measured zd
 // filenames:  AMC_Z<zd>_A<az>.lut    ("AMC_Z%+3d_A%+2d.lut")
 
-   int i,iz,ia,j,jz,izmin,izmax,lut_zen[200],nmbr,ifst ;
-   int k,kz,lz,kkk,xza,xzb,yza,yzb,px,py,motA,motB,jj ;
-   float dla, dlb ;
-   char line[1000], directory[500], lstr[160] ;
+   int i,iz,ia,j,jz,izmin,izmax,lut_zen[200],nmbr,ifst;
+   int k,kz,lz,kkk,xza,xzb,yza,yzb,px,py,motA,motB,jj;
+   float dla, dlb;
+   char line[1000], directory[500], lstr[160];
 
    FILE* param;
    DIR *dp;
    struct dirent *ep;
-   
 
 // preset all to 0
    for (i=0; i<17; i++)
       for (j=0; j<17; j++) {
-         p[i][j].corr[0] = p[i][j].corr[1] = 0 ;
-         for (iz=0; iz<200 ; iz++) ;
-            p[i][j].lut[0][iz][0] = p[i][j].lut[0][iz][1] = 0 ;
+         p[i][j].corr[0] = p[i][j].corr[1] = 0;
+         for (iz=0; iz<200; iz++)
+            p[i][j].lut[0][iz][0] = p[i][j].lut[0][iz][1] = 0;
       }
 
-
    nmbr = 0;
-   for (i=0; i<200; i++) lut_zen[i]=0 ;
+   for (i=0; i<200; i++) lut_zen[i]=0;
 
 // read directory:
-     
    dp = opendir (".");
 /* dp = opendir ("/home/biland/AMC2/");
    if (dp == NULL)  return -1 ;
@@ -254,47 +252,46 @@ int  LUT_read(AMCpanel p[17][17],int nnew)
  */
 
 
-   while (ep = readdir (dp)) {
+   while ((ep = readdir (dp))) {
 
-      jj=sscanf(ep->d_name,"AMC_Z%d_A%d.lut" ,&iz,&ia) ;
+      jj=sscanf(ep->d_name,"AMC_Z%d_A%d.lut" ,&iz,&ia);
 
       if (jj==2 && abs(iz)<100 && strlen(ep->d_name)==18 &&
            ep->d_name[17]=='t' ) {         //found a file
-         
+
 //       read the file and store in the lut structure
 //       format:  panel_address (i j) motA motB
 
-         jz=iz+100 ;
+         jz=iz+100;
          param = fopen(ep->d_name,"r");
-         if(param == NULL) { 
-            sprintf(lstr,"can't open %s",ep->d_name); 
-            put_logfile(LOG_ERR, 0, ep->d_name) ;
+         if(param == NULL) {
+            sprintf(lstr,"can't open %s",ep->d_name);
+            put_logfile(LOG_ERR, 0, ep->d_name);
             return(-1);
          }
-         put_logfile(LOG_DB1, 0, ep->d_name) ;
-         nmbr++ ;
-         lut_zen[iz+100]++ ;
+         put_logfile(LOG_DB1, 0, ep->d_name);
+         nmbr++;
+         lut_zen[iz+100]++;
          ifst=0;
          while ( fgets(line,1000,param) ) {
-            if (ifst++ == 0 )  put_logfile(LOG_INF, 0, line) ;
+            if (ifst++ == 0)  put_logfile(LOG_INF, 0, line);
             if (line[0] != '#') {
                sscanf(line, "%d %d %d %d", &px,&py,&motA,&motB);
                i = px + 8;
                j = py + 8;
-               p[i][j].lut[0][jz][0] = motA ;
-               p[i][j].lut[0][jz][1] = motB ;
+               p[i][j].lut[0][jz][0] = motA;
+               p[i][j].lut[0][jz][1] = motB;
             }
    }  }  }
-          
+         
    (void) closedir (dp);
 
-
 // interpolate the values
-   for (iz=0;   iz<200 && lut_zen[iz]==0; iz++) ;
-   izmin = iz ;
+   for (iz=0;   iz<200 && lut_zen[iz]==0; iz++);
+   izmin = iz;
 
-   for (iz=199; iz>0 && lut_zen[iz]==0; iz--) ;
-   izmax = iz ;
+   for (iz=199; iz>0 && lut_zen[iz]==0; iz--);
+   izmax = iz;
 
    sprintf(lstr,"interpolate LUT: min, max, %d %d",izmin-100,izmax-100);
    put_logfile(LOG_DB9, 0, lstr);
@@ -302,57 +299,51 @@ int  LUT_read(AMCpanel p[17][17],int nnew)
       lut_zen[jz]=-1;
       for ( i=0; i<17; i++ )
          for ( j=0; j<17; j++) {
-            p[i][j].lut[0][jz][0] = p[i][j].lut[0][izmin][0] ;
-            p[i][j].lut[0][jz][1] = p[i][j].lut[0][izmin][1] ;
+            p[i][j].lut[0][jz][0] = p[i][j].lut[0][izmin][0];
+            p[i][j].lut[0][jz][1] = p[i][j].lut[0][izmin][1];
    }     }
 
    for (jz=199; jz>izmax; jz--) { //expand fixed to highest zd
       lut_zen[jz]=-1;
-      for ( i=0; i<17; i++ ) 
+      for ( i=0; i<17; i++ )
          for ( j=0; j<17; j++) {
-            p[i][j].lut[0][jz][0] = p[i][j].lut[0][izmax][0] ;
-            p[i][j].lut[0][jz][1] = p[i][j].lut[0][izmax][1] ;
+            p[i][j].lut[0][jz][0] = p[i][j].lut[0][izmax][0];
+            p[i][j].lut[0][jz][1] = p[i][j].lut[0][izmax][1];
    }     }
 
-
-   //linear interpolation
-
+//linear interpolation
    kz=izmin;
    while (kz<izmax) {
-      for (lz=kz+1; lut_zen[lz]==0 && lz<=izmax; lz++) ;
-//    printf("interpolate from %d to %d; %d %d\n", kz, lz, lut_zen[lz], lut_zen[lz]==0 && lz<=izmax ) ;
-      kkk = (lz - kz ) ;
+      for (lz=kz+1; lut_zen[lz]==0 && lz<=izmax; lz++);
+//    printf("interpolate from %d to %d; %d %d\n", kz, lz, lut_zen[lz], lut_zen[lz]==0 && lz<=izmax );
+      kkk = (lz - kz );
       if (kkk > 1)
          for ( i=0; i<17; i++ )
             for ( j=0; j<17; j++) {
-               xza = p[i][j].lut[0][kz][0] ;
-               yza = p[i][j].lut[0][lz][0] ;
-               xzb = p[i][j].lut[0][kz][1] ;
-               yzb = p[i][j].lut[0][lz][1] ;
-               dla = (float) (yza - xza)/kkk ;
-               dlb = (float) (yzb - xzb)/kkk ;
+               xza = p[i][j].lut[0][kz][0];
+               yza = p[i][j].lut[0][lz][0];
+               xzb = p[i][j].lut[0][kz][1];
+               yzb = p[i][j].lut[0][lz][1];
+               dla = (float) (yza - xza)/kkk;
+               dlb = (float) (yzb - xzb)/kkk;
 
                for (k=1; k<kkk; k++ ) {
                   p[i][j].lut[0][k+kz][0] = xza+ k*dla +0.5;
                   p[i][j].lut[0][k+kz][1] = xzb+ k*dlb +0.5;
 
             }  }
-      
-      for (k=kz+1; k<lz; k++) lut_zen[k]=-2;
-      kz=lz ;
-   }
 
+      for (k=kz+1; k<lz; k++) lut_zen[k]=-2;
+      kz=lz;
+   }
 
    if (nnew <=0 )               //there are no NEW files to test ==> for safety use LUT
       for ( i=0; i<17; i++)
           for ( j=0; j<17; j++)
               for (k=0; k<200; k++) {
-                  p[i][j].new[0][k][0] =  p[i][j].lut[0][k][0] ;
-                  p[i][j].new[0][k][1] =  p[i][j].lut[0][k][1] ;
+                  p[i][j].new[0][k][0] =  p[i][j].lut[0][k][0];
+                  p[i][j].new[0][k][1] =  p[i][j].lut[0][k][1];
               }
-
-
-
 
    sprintf(lstr,"read %d lut-files",nmbr);
    put_logfile(LOG_OK_, 0, lstr);
@@ -361,127 +352,121 @@ int  LUT_read(AMCpanel p[17][17],int nnew)
 
 //--------------------------------------------------------------------
 
-int  NEW_read(AMCpanel p[17][17])
+int NEW_read(AMCpanel p[17][17])
 {
 // read NEW; interpolate between not measured zd
 // filenames:  AMC_Z<zd>_A<az>.lut    ("AMC_Z%+3d_A%+2d.lut")
 
-   int i,iz,ia,j,jz,izmin,izmax,lut_zen[200],nmbr,ifst ;
-   int k,kz,lz,kkk,xza,xzb,yza,yzb,px,py,motA,motB,jj ;
-   float dla, dlb ;
-   char line[1000], directory[500], lstr[160] ;
+   int i,iz,ia,j,jz,izmin,izmax,lut_zen[200],nmbr,ifst;
+   int k,kz,lz,kkk,xza,xzb,yza,yzb,px,py,motA,motB,jj;
+   float dla, dlb;
+   char line[1000], directory[500], lstr[160];
 
    FILE* param;
    DIR *dp;
    struct dirent *ep;
-   
 
 // preset all to 0
    for (i=0; i<17; i++)
       for (j=0; j<17; j++) {
-         p[i][j].corr[0] = p[i][j].corr[1] = 0 ;
-         for (iz=0; iz<200 ; iz++) ;
-            p[i][j].new[0][iz][0] = p[i][j].new[0][iz][1] = 0 ;
+         p[i][j].corr[0] = p[i][j].corr[1] = 0;
+         for (iz=0; iz<200; iz++);
+            p[i][j].new[0][iz][0] = p[i][j].new[0][iz][1] = 0;
       }
 
-
    nmbr = 0;
-   for (i=0; i<200; i++) lut_zen[i]=0 ;
+   for (i=0; i<200; i++) lut_zen[i]=0;
 
 // read directory:
-     
    dp = opendir (".");
 
+   while ((ep = readdir (dp))) {
 
-   while (ep = readdir (dp)) {
-
-      jj=sscanf(ep->d_name,"AMC_Z%d_A%d.new" ,&iz,&ia) ;
+      jj=sscanf(ep->d_name,"AMC_Z%d_A%d.new" ,&iz,&ia);
 
       if (jj==2 && abs(iz)<100 && strlen(ep->d_name)==18 &&
          ep->d_name[17]=='w' ) {         //found a file
 
-         jz=iz+100 ;
+         jz=iz+100;
          param = fopen(ep->d_name,"r");
-         if(param == NULL) { 
-            sprintf(lstr,"can't open %s",ep->d_name); 
-            put_logfile(LOG_ERR, 0, ep->d_name) ;
+         if(param == NULL) {
+            sprintf(lstr,"can't open %s",ep->d_name);
+            put_logfile(LOG_ERR, 0, ep->d_name);
             return(-1);
          }
-         put_logfile(LOG_DB1, 0, ep->d_name) ;
-         nmbr++ ;
-         lut_zen[iz+100]++ ;
+         put_logfile(LOG_DB1, 0, ep->d_name);
+         nmbr++;
+         lut_zen[iz+100]++;
          ifst=0;
          while ( fgets(line,1000,param) ) {
-            if (ifst++ == 0 )  put_logfile(LOG_INF, 0, line) ;
+            if (ifst++ == 0 )  put_logfile(LOG_INF, 0, line);
             if (line[0] != '#') {
                sscanf(line, "%d %d %d %d", &px,&py,&motA,&motB);
                i = px + 8;
                j = py + 8;
-               p[i][j].new[0][jz][0] = motA ;
-               p[i][j].new[0][jz][1] = motB ;
+               p[i][j].new[0][jz][0] = motA;
+               p[i][j].new[0][jz][1] = motB;
             }
    }  }  }
-          
+         
    (void) closedir (dp);
 
-
 // interpolate the values
-   for (iz=0;   iz<200 && lut_zen[iz]==0; iz++) ;
-   izmin = iz ;
+   for (iz=0;   iz<200 && lut_zen[iz]==0; iz++);
+   izmin = iz;
 
-   for (iz=199; iz>0 && lut_zen[iz]==0; iz--) ;
-   izmax = iz ;
+   for (iz=199; iz>0 && lut_zen[iz]==0; iz--);
+   izmax = iz;
 
    sprintf(lstr,"interpolate NEW: min, max, %d %d",izmin,izmax);
    put_logfile(LOG_DB9, 0, lstr);
    for (jz=0; jz<izmin; jz++) {   //expand fixed to lowest zd
       lut_zen[jz]=-1;
-      for ( i=0; i<17; i++ )
-         for ( j=0; j<17; j++) {
-            p[i][j].new[0][jz][0] = p[i][j].new[0][izmin][0] ;
-            p[i][j].new[0][jz][1] = p[i][j].new[0][izmin][1] ;
+      for (i=0; i<17; i++)
+         for (j=0; j<17; j++) {
+            p[i][j].new[0][jz][0] = p[i][j].new[0][izmin][0];
+            p[i][j].new[0][jz][1] = p[i][j].new[0][izmin][1];
    }     }
 
    for (jz=199; jz>izmax; jz--) { //expand fixed to highest zd
       lut_zen[jz]=-1;
-      for ( i=0; i<17; i++ ) 
-         for ( j=0; j<17; j++) {
-            p[i][j].new[0][jz][0] = p[i][j].new[0][izmax][0] ;
-            p[i][j].new[0][jz][1] = p[i][j].new[0][izmax][1] ;
+      for (i=0; i<17; i++)
+         for (j=0; j<17; j++) {
+            p[i][j].new[0][jz][0] = p[i][j].new[0][izmax][0];
+            p[i][j].new[0][jz][1] = p[i][j].new[0][izmax][1];
    }     }
 
-
-   //linear interpolation
-
+//linear interpolation
    kz=izmin;
    while (kz<izmax) {
-      for (lz=kz+1; lut_zen[lz]==0 && lz<=izmax; lz++) ;
-//    printf("interpolate from %d to %d; %d %d\n", kz, lz, lut_zen[lz], lut_zen[lz]==0 && lz<=izmax ) ;
-      kkk = (lz - kz ) ;
+      for (lz=kz+1; lut_zen[lz]==0 && lz<=izmax; lz++);
+//    printf("interpolate from %d to %d; %d %d\n", kz, lz, lut_zen[lz], lut_zen[lz]==0 && lz<=izmax );
+      kkk = (lz - kz );
       if (kkk > 1)
          for ( i=0; i<17; i++ )
             for ( j=0; j<17; j++) {
-               xza = p[i][j].new[0][kz][0] ;
-               yza = p[i][j].new[0][lz][0] ;
-               xzb = p[i][j].new[0][kz][1] ;
-               yzb = p[i][j].new[0][lz][1] ;
-               dla = (float) (yza - xza)/kkk ;
-               dlb = (float) (yzb - xzb)/kkk ;
+               xza = p[i][j].new[0][kz][0];
+               yza = p[i][j].new[0][lz][0];
+               xzb = p[i][j].new[0][kz][1];
+               yzb = p[i][j].new[0][lz][1];
+               dla = (float) (yza - xza)/kkk;
+               dlb = (float) (yzb - xzb)/kkk;
 
                for (k=1; k<kkk; k++ ) {
                   p[i][j].new[0][k+kz][0] = xza+ k*dla +0.5;
                   p[i][j].new[0][k+kz][1] = xzb+ k*dlb +0.5;
 
             }  }
-      
+
       for (k=kz+1; k<lz; k++) lut_zen[k]=-2;
-      kz=lz ;
+      kz=lz;
    }
 
    sprintf(lstr,"read %d new-files",nmbr);
    put_logfile(LOG_OK_, 0, lstr);
    return(nmbr);
 }
+
 
 //--------------------------------------------------------------------
 

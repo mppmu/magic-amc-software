@@ -762,7 +762,6 @@ void upd_act_pan(int ii, int jj, int nsele, int mode)
 
     if (mode >= 0) fl_set_object_label(FLinfo, glob_info);
     if (mode <= 0) {
-
       sprintf(lstr, "-------I-N-I------------------");
       put_logfile(LOG_DB1, -2, lstr);
       l0 = 0;
@@ -1453,7 +1452,7 @@ void action_star(int imod)
 
         if (g_sbig_err != 0) {
           //something went wrong with SBIG ==> ERROR !!!!
-          sprintf(lstr, "SBIG ERROR: power-cycle SBIG and redo action ");
+          sprintf(lstr, "SBIG ERROR: power cycle SBIG and redo action");
           put_logfile(LOG_WRN, 0, lstr);
           for (i = 0; i < 17; i++)
             for (j = 0; j < 17; j++)
@@ -1958,8 +1957,8 @@ void action_cb(FL_OBJECT *ob, long cmd)
 
   int k, i, j, it, jt, istat, ix, iy, jz, foca, focb, ncmd, idur, npan;
   int ipan = -1, jpan = -1, numpan = -1, exc_cmd, idum;
-  int tmp_pan[17][17] = {289 * 0};
-  int tmp_mov[17][17] = {289 * 0};
+  int tmp_pan[17][17] = {{289 * 0}};
+  int tmp_mov[17][17] = {{289 * 0}};
   int moveflg;
   long isec, isec0, iusec, iusec0;
   char str[20], xstr[20];
@@ -3147,7 +3146,6 @@ void lut_cb(FL_OBJECT *ob, long n)
   i = LUT_read(panel, j);
   sprintf(lstr, "did read %d LUT- and %d NEW-files", i, j);
   put_logfile(LOG_DB1, 0, lstr);
-
 }
 
 //--------------------------------------------------------------------
@@ -3699,9 +3697,9 @@ void gen_CC(int ix, int iy, int dx, int dy)
   FL_OBJECT *obj;
   int jx, jy;
   //colors  blue /green/orange/red
-
   jx = ix;
   jy = iy;
+
   FL_CC_grp = fl_bgn_group();
   obj = fl_add_box(FL_NO_BOX, jx, jy, dx, dy, "From CC:");
   fl_set_object_lstyle(obj, FL_FIXEDBOLD_STYLE);
@@ -4991,9 +4989,9 @@ void view_cb(FL_OBJECT *ob, long n)
 
   if (n < 0) {
     if (ob != NULL) i = fl_get_button(ob);
-    else              i = 0;
+    else           i = 0;
     if (n == -1) dinv = i;
-    else            inv = i;
+    else           inv = i;
   }
   else mode = n;
 

@@ -27,15 +27,18 @@ int PWRPROBLEM = 1;  //set to 0 when all ok, else it suppresses the error messag
 #include "AMCpower.h"
 #include "AMCgui.h"
 #include "CC.h"
+#include "amc.h"
 #include "st7.h"
 #include "st7temp.c"
 #include "fitsio.h"
 #include <pthread.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <dirent.h>
 
@@ -160,10 +163,10 @@ int g_ret = 0;                 //some dummy return flag for debug
 int g_pictcnt    = 0;
 int g_pict_expos = 0;
 
-unsigned long g_pwr_slp = 0;   //actual sleep until next power check
-unsigned long isec, iusec, isec0, iusec0, isec1, iusec1;
-unsigned long idlsec;
-unsigned long g_ccisec, g_cciusec;
+long g_pwr_slp = 0;   //actual sleep until next power check
+long isec, iusec, isec0, iusec0, isec1, iusec1;
+long idlsec;
+long g_ccisec, g_cciusec;
 
 #define LOGLEN 1000
 long g_numstr = 0;
@@ -177,7 +180,6 @@ int g_exiton = -1;
 int g_ifID = 0;
 int g_ifIDold =0;
 int g_ifIDuse =0;
-
 
 char lstr[LOGLEN];
 char tstr[LOGLEN];
@@ -240,12 +242,12 @@ AMCpanel *pb[600];
 //----------------------------------------
 //steering SBIG from CC
 
-double g_cc_expos = 50;   //exposure time (sec*100)
-int  g_sbig_stat = 0;   //status of SBIG   0=off,1=switching off, 2=switching on, 3=ready, 4=busy, 9=error
-int  g_cc_temp = -10;     //temperature to set
-int  g_cc_filt = 1;     //filter to set
-int  g_sbig_cc = 0;     //sbig command from cc ?
-int  g_pict_filt = 9;     //0 = darkpict, else filter ?
+double g_cc_expos = 50;  //exposure time (sec*100)
+int  g_sbig_stat = 0;    //status of SBIG   0=off,1=switching off, 2=switching on, 3=ready, 4=busy, 9=error
+int  g_cc_temp = -10;    //temperature to set
+int  g_cc_filt = 1;      //filter to set
+int  g_sbig_cc = 0;      //sbig command from cc ?
+int  g_pict_filt = 9;    //0 = darkpict, else filter ?
 
 //----------------------------------------
 
@@ -283,7 +285,7 @@ void col_define(void)
 {
   int i;
 
-  fl_mapcolor(100           , COL_GRAY);
+  fl_mapcolor(100            , COL_GRAY);
 
   fl_mapcolor(110 +  STAT_DIS, COL_DIS_1);
   fl_mapcolor(110 +  STAT_COM, COL_COM_1);
@@ -390,15 +392,15 @@ void put_logfile(int type, int flag, char* str)
   AMCtime(utime);
 
   if (flag >= 0) {        //output to log display
-    snprintf(&g_logstr[g_numstr][0], LOGLEN, "@C%d %06d %s", g_log_col[k], utime[0], str);
+    snprintf(&g_logstr[g_numstr][0], LOGLEN, "@C%d %06ld %s", g_log_col[k], utime[0], str);
     if (g_numstr < 100) g_numstr++;
   }
 
   if (flag <= 0) {       //output to log-file
-    fprintf(f_log, "%06d %c %s\n", utime[0], g_log_chr[k], str);
+    fprintf(f_log, "%06ld %c %s\n", utime[0], g_log_chr[k], str);
   }
 
-  if (k == LOG_ERR || k == LOG_SVR) fprintf(f_err, "%06d %s\n", utime[0], str);
+  if (k == LOG_ERR || k == LOG_SVR) fprintf(f_err, "%06ld %s\n", utime[0], str);
 
   /*
     add a line to the logfile (no \n!!!)
@@ -436,7 +438,6 @@ void shiftfoc(int dFoc, double dXx, double dYy, int flag)
      }
      g_ifIDold = g_ifIDuse ;
   }
-
 
   for (i = 0; i < 17; i++) {
     di = (i - 8) * 1000.;
@@ -491,13 +492,13 @@ int AMCtime(long utime[5])
   utime[0] =  atm.tm_hour     * 10000 + atm.tm_min * 100 + atm.tm_sec;
   utime[1] = (atm.tm_year - 100) * 10000 + (atm.tm_mon + 1) * 100 + atm.tm_mday;
 
-  sprintf(g_datstr, "%04d %02d %02d %02d %02d %02d %03d",
+  sprintf(g_datstr, "%04d %02d %02d %02d %02d %02d %03ld",
           atm.tm_year + 1900, atm.tm_mon + 1, atm.tm_mday,
           atm.tm_hour, atm.tm_min, atm.tm_sec, utime[3]);
 
-  utime[5] = atm.tm_hour     * 3600 +  atm.tm_min * 60 + atm.tm_sec;
+  utime[4] = atm.tm_hour     * 3600 +  atm.tm_min * 60 + atm.tm_sec;
   if (atm.tm_hour < 12)
-    utime[5] = utime[5] + 12 * 3600;
+    utime[4] = utime[4] + 12 * 3600;
 
   return(0);
 }
@@ -511,7 +512,7 @@ int gen_logfile()
   int k;
 
   AMCtime(utime);
-  sprintf(fname, "AMC2_%06d_%06d.log", utime[1], utime[0]);
+  sprintf(fname, "AMC2_%06ld_%06ld.log", utime[1], utime[0]);
 
   f_log = fopen(fname, "w");
   setlinebuf(f_log); //flush buffer at each end of line
@@ -519,8 +520,8 @@ int gen_logfile()
   f_err = fopen("AMC2_err.logall", "a");  //append to standard file
   setlinebuf(f_err); //flush buffer at each end of line
 
-  fprintf(f_log, "%06d X V4.50 AMC_%06d_%06d.log\n", utime[0], utime[1], utime[0]);
-  fprintf(f_err, "%06d --V4.50 AMC_%06d_%06d.log --- \n", utime[1], utime[1], utime[0]);
+  fprintf(f_log, "%06ld X V4.50 AMC_%06ld_%06ld.log\n", utime[0], utime[1], utime[0]);
+  fprintf(f_err, "%06ld --V4.50 AMC_%06ld_%06ld.log --- \n", utime[1], utime[1], utime[0]);
 
   for (k = 0; k < 20; k++) {
     g_log_col[ k] = 6;
@@ -635,7 +636,7 @@ void *Power_th(void *threadid)
       }
 
 //                                soll      ist
-      g_pwr_ret = AMC_exec_pwr(0, &nominal, &status); //query the status
+      g_pwr_ret = AMC_exec_pwr(0, nominal, status); //query the status
 
       printf("\np: soll:    ");
       for (i = 0; i < 32; i++) {
@@ -670,7 +671,7 @@ void *Power_th(void *threadid)
           nominal[i] = power[j].nominal = power[j].request;
           status[i] = power[j].actual;
         }
-        g_pwr_ret = AMC_exec_pwr(1, &nominal, &status);
+        g_pwr_ret = AMC_exec_pwr(1, nominal, status);
 
         if (g_pwr_ret == 0) {
           if (g_pwr_stat == 0) g_pwr_stat = 1; //flag we know about power ..
@@ -703,8 +704,7 @@ void *Power_th(void *threadid)
     nominal[i] = power[j].nominal = power[j].request;
     status[i] = power[j].actual;
   }
-
-  g_pwr_ret = AMC_exec_pwr(1, &nominal, &status); //make sure everything as requested ...
+  g_pwr_ret = AMC_exec_pwr(1, nominal, status); //make sure everything as requested ...
 
   sprintf(lstr, "end power thread");
   put_logfile(LOG_PWR, 0, lstr);
@@ -808,6 +808,7 @@ if (PWRPROBLEM !=0) {
 }
 
 //--------------------------------------------------------------------
+
 void upd_act_pan(int ii, int jj, int nsele, int mode)
 {
   int k, i, j, ix, iy, l0, l1, l2;
@@ -929,7 +930,7 @@ void upd_act_pan(int ii, int jj, int nsele, int mode)
       fl_set_object_lcol(FLmov_grp, 901);
     }
 
-    if (k == MODE_AUTO || k == MODE_OPER || ii >= 0 && jj >= 0)
+    if (k == MODE_AUTO || k == MODE_OPER || (ii >= 0 && jj >= 0))
       fl_set_object_lcol(FLinfo, 900);
     else
       fl_set_object_lcol(FLinfo, 901);
@@ -1098,12 +1099,14 @@ void *AutoPict_th(void *threadid)
   if (a_sb_mode == S_PICT_TH) time = g_expos + 1. + 3500. / ywid;
   g_sbig_dscr  = 1. / time;
 
-  sprintf(lstr, "SBIGA Pict %d %f", a_sb_mode, time);
+  sprintf(lstr, "SBIGA Pict %ld %f", a_sb_mode, time);
   put_logfile(LOG_SBG, 0, lstr);
   g_sbiga_th = g_sb_mode;      //flag thread as active
-  ret = PictureST7(g_expos, &img_buffer, x0, y0, xwid, ywid, shutt, mode);
+  ret = PictureST7(g_expos, (short unsigned int *) &img_buffer, x0, y0, xwid, ywid, shutt, mode);
 
   g_sbiga_th = g_sb_mode * -1; //flag thread as finished
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -1138,7 +1141,7 @@ void action_pola(int imod)
   a_sb_shutt = SC_OPEN_SHUTTER;  //standard picture using shutter
 
   if (g_sbigon != 1) {
-    sprintf(lstr, "pola: sbig camera not switched on ??? %d", g_sbigon);
+    sprintf(lstr, "pola: sbig camera not switched on ??? %ld", g_sbigon);
     put_logfile(LOG_ERR, 0, lstr);
     return;
   }
@@ -1173,9 +1176,9 @@ void action_pola(int imod)
         panel[i][j].pan_stat = STAT_TDO;
         mpan1++;
       }
-  fl_set_button(FL_actDef, 1);      //set corresponding action-button
+  fl_set_button(FL_actDef, 1);   //set corresponding action-button
   action_cb(NULL, GUIcmd_DFOC);
-  fl_set_button(FL_actDef, 0);      //deselect action-button
+  fl_set_button(FL_actDef, 0);   //deselect action-button
 
   //loop over all selected panels; mark them all 'ACT', loop over them
   mpan = 0;
@@ -1244,12 +1247,12 @@ void action_pola(int imod)
         MM = (utime[1] / 100) % 100;
 
         if (imod == 2) {
-          sprintf(a_sb_name, "%s/%04d/%02d/M2_ROQ_%06d_%06d_Z%+03d_P%+02d%+02d_A%+05d_B%+05d",
+          sprintf(a_sb_name, "%s/%04d/%02d/M2_ROQ_%06ld_%06ld_Z%+03d_P%+02d%+02d_A%+05d_B%+05d",
                   sbig_path, YY, MM, utime[1], utime[0], jz - 100, ii, jj,
                   panel[i][j].pc_mot[0], panel[i][j].pc_mot[1]);
         }
         else {
-          sprintf(a_sb_name, "%s/%04d/%02d/M2_POL_%06d_%06d_Z%+03d_P%+02d%+02d_A%+05d_B%+05d",
+          sprintf(a_sb_name, "%s/%04d/%02d/M2_POL_%06ld_%06ld_Z%+03d_P%+02d%+02d_A%+05d_B%+05d",
                   sbig_path, YY, MM, utime[1], utime[0], jz - 100, ii, jj,
                   panel[i][j].pc_mot[0], panel[i][j].pc_mot[1]);
         }
@@ -1269,10 +1272,10 @@ void action_pola(int imod)
 
 badpan:
         old_stat = panel[i][j].pan_stat = STAT_ERR;
-        sprintf(lstr, "pola(%2d,%2d): BADPAN %d", ii, jj, g_sbig_err);
+        sprintf(lstr, "pola(%2d,%2d): BADPAN %ld", ii, jj, g_sbig_err);
         put_logfile(LOG_ERR, 0, lstr);
         if (g_sbig_err > 0)
-          numbad++;   //check if there is a severe SBIG problem
+          numbad++;  //check if there is a severe SBIG problem
         g_sbig_err = 0;
 
 
@@ -1321,9 +1324,9 @@ endpola:
     for (j = 0; j < 17; j++)
       if (panel[i][j].pan_stat > STAT_NIN)
         panel[i][j].pan_stat = STAT_TDO;
-  fl_set_button(FL_actAdj, 1);      //set corresponding action-button
+  fl_set_button(FL_actAdj, 1);   //set corresponding action-button
   action_cb(NULL, GUIcmd_ADJS);
-  fl_set_button(FL_actAdj, 0);      //deselect action-button
+  fl_set_button(FL_actAdj, 0);   //deselect action-button
   */
 
   //loop over all selected panels and set status to POLA-status
@@ -1357,7 +1360,7 @@ void action_star(int imod)
   a_sb_shutt = SC_OPEN_SHUTTER;  //standard picture using shutter
 
   if (g_sbigon != 1) {
-    sprintf(lstr, "star: sbig camera not switched on ??? %d", g_sbigon);
+    sprintf(lstr, "star: sbig camera not switched on ??? %ld", g_sbigon);
     put_logfile(LOG_ERR, 0, lstr);
     return;
   }
@@ -1511,7 +1514,7 @@ void action_star(int imod)
         YY = utime[1] / 10000 + 2000;
         MM = (utime[1] / 100) % 100;
 
-        sprintf(a_sb_name, "%s/%04d/%02d/M2_STR_%06d_%06d_Z%+03d_PGR%02d_DF%04d_M%d.txt",
+        sprintf(a_sb_name, "%s/%04d/%02d/M2_STR_%06ld_%06ld_Z%+03d_PGR%02d_DF%04d_M%d.txt",
                 sbig_path, YY, MM, utime[1], utime[0], jz - 100, p, idefoc, jmod);
         f_param = fopen(a_sb_name, "w");
         for (i = 0; i < 17; i++) {
@@ -1533,7 +1536,7 @@ void action_star(int imod)
         fprintf(f_param, "# shiftfoc: F=%5d, X=%8.1f, Y=%8.1f\n", idefoc, global_xoff, global_yoff);
         fclose(f_param);
 
-        sprintf(a_sb_name, "%s/%04d/%02d/M2_STR_%06d_%06d_Z%+03d_PGR%02d_DF%04d_M%d",
+        sprintf(a_sb_name, "%s/%04d/%02d/M2_STR_%06ld_%06ld_Z%+03d_PGR%02d_DF%04d_M%d",
                 sbig_path, YY, MM, utime[1], utime[0], jz - 100, p, idefoc, jmod);
 
         a_sb_mode = S_PICT_TH; //expose and read picture
@@ -1604,7 +1607,7 @@ void action_cali(int imod)
   int calstep[2][12];
   long utime[5];
 
-  jz = global_zenith + 100;            //in case we need the zenith angle
+  jz = global_zenith + 100;         //in case we need the zenith angle
 
   int loc_foc = global_foclen;
   shiftfoc(loc_foc, global_xoff, global_yoff, 0);
@@ -1622,7 +1625,7 @@ void action_cali(int imod)
   fl_set_object_label(FL_durat, lstr);  //put start-time
 
   if (g_sbigon != 1) {
-    sprintf(lstr, "cali: sbig camera not switched on ??? %d", g_sbigon);
+    sprintf(lstr, "cali: sbig camera not switched on ??? %ld", g_sbigon);
     put_logfile(LOG_ERR, 0, lstr);
     return;
   }
@@ -1778,11 +1781,11 @@ void action_cali(int imod)
             ret = pthread_join(sbig_autoth[0], (void **)&status);            //join read
             if (g_sbig_err != 0) {
               old_stat = panel[i][j].pan_stat = STAT_ERR;
-              sprintf(lstr, "SBIG error %d (%+2d,%+2d) %d", g_sbig_err, i - 8, j - 8, panel[i][j].pan_stat);
+              sprintf(lstr, "SBIG error %ld (%+2d,%+2d) %d", g_sbig_err, i - 8, j - 8, panel[i][j].pan_stat);
               put_logfile(LOG_WRN, 0, lstr);
               goto badpan;
             }
-            pict_anal(0);                                                   //analyse picture
+            pict_anal(0);                                                    //analyse picture
             save_cb(NULL, -1);                                               //save picture
             g_newpic = 1;
             upd_pixmap();                                                    //show picture
@@ -1790,7 +1793,7 @@ void action_cali(int imod)
 
           sprintf(act_pangrp, "(%+2d,%+2d)", ii, jj);
           a_sb_mode = S_EXPO_TH;
-          ret = pthread_create(&sbig_autoth[0], NULL, AutoPict_th, NULL);     //start expose
+          ret = pthread_create(&sbig_autoth[0], NULL, AutoPict_th, NULL);    //start expose
           AMCtime(utime);
           YY = utime[1] / 10000 + 2000;
           MM = (utime[1] / 100) % 100;
@@ -1833,13 +1836,13 @@ void action_cali(int imod)
             calstep[1][11] = iy - 1900;
 
           if (k == 0)
-            sprintf(a_sb_name, "%s/%04d/%02d/M2_CAL_%06d_%06d_Z%+03d_P%+02d%+02d_A%+05d_B%+05d_focus",
+            sprintf(a_sb_name, "%s/%04d/%02d/M2_CAL_%06ld_%06ld_Z%+03d_P%+02d%+02d_A%+05d_B%+05d_focus",
                     sbig_path, YY, MM, utime[1], utime[0], jz - 100, i - 8, j - 8, calstep[0][k], calstep[1][k]);
           else if (k == 11 || k == 20)
-            sprintf(a_sb_name, "%s/%04d/%02d/M2_CAL_%06d_%06d_Z%+03d_P%+02d%+02d_A%+05d_B%+05d_defocus",
+            sprintf(a_sb_name, "%s/%04d/%02d/M2_CAL_%06ld_%06ld_Z%+03d_P%+02d%+02d_A%+05d_B%+05d_defocus",
                     sbig_path, YY, MM, utime[1], utime[0], jz - 100, i - 8, j - 8, calstep[0][k], calstep[1][k]);
           else
-            sprintf(a_sb_name, "%s/%04d/%02d/M2_CAL_%06d_%06d_Z%+03d_P%+02d%+02d_A%+05d_B%+05d",
+            sprintf(a_sb_name, "%s/%04d/%02d/M2_CAL_%06ld_%06ld_Z%+03d_P%+02d%+02d_A%+05d_B%+05d",
                     sbig_path, YY, MM, utime[1], utime[0], jz - 100, i - 8, j - 8, calstep[0][k], calstep[1][k]);
           ret = pthread_join(sbig_autoth[0], (void **)&status);               //join expose
 
@@ -1855,10 +1858,10 @@ void action_cali(int imod)
           AMC_check_gui(0, -2.);      //check GUI and CC
           ret = pthread_join(sbig_autoth[0], (void **)&status);               //join expose
           if (g_sbig_err == 0) {
-            pict_anal(0);                                                   //analyse picture
-            save_cb(NULL, -1);                                               //save picture
+            pict_anal(0);                                                     //analyse picture
+            save_cb(NULL, -1);                                                //save picture
             g_newpic = 1;
-            upd_pixmap();                                                    //show picture
+            upd_pixmap();                                                     //show picture
             panel[i][j].pan_stat = old_stat;
           }
           else {
@@ -1873,16 +1876,16 @@ void action_cali(int imod)
         goto goodpan;
 
 badpan:
-        sprintf(lstr, "cali(%2d,%2d): BADPAN %d", ii, jj, g_sbig_err);
+        sprintf(lstr, "cali(%2d,%2d): BADPAN %ld", ii, jj, g_sbig_err);
         put_logfile(LOG_ERR, 0, lstr);
         if (g_sbig_err > 0)
-          numbad++;   //check if there is a severe SBIG problem
+          numbad++;  //check if there is a severe SBIG problem
         g_sbig_err = 0;
 
 goodpan:
         old_stat = panel[i][j].pan_stat;
         if (numbad > 1 || global_break > 0)
-          goto endcali;   //2 consecutive SBIG problems==>stop
+          goto endcali; //2 consecutive SBIG problems==>stop
       }
 
   //we are done with all selected panels .....
@@ -1896,8 +1899,8 @@ endcali:
 
 }
 
-
 //--------------------------------------------------------------------
+
 void action_lasi(int imod)   //take laser pictures indep. of actuators
 {
   int k, i, j, it, jt, istat, ix, iy, jz, foca, focb, ncmd, idur, ret;
@@ -1922,7 +1925,7 @@ void action_lasi(int imod)   //take laser pictures indep. of actuators
   fl_set_object_label(FL_durat, lstr);  //put start-time
 
   if (g_sbigon != 1) {
-    sprintf(lstr, "lasi: sbig camera not switched on ??? %d", g_sbigon);
+    sprintf(lstr, "lasi: sbig camera not switched on ??? %ld", g_sbigon);
     put_logfile(LOG_ERR, 0, lstr);
     return;
   }
@@ -1980,7 +1983,7 @@ void action_lasi(int imod)   //take laser pictures indep. of actuators
         AMCtime(utime);
         YY = utime[1] / 10000 + 2000;
         MM = (utime[1] / 100) % 100;
-        sprintf(a_sb_name, "%s/%04d/%02d/M2_LAS_%06d_%06d_Z%+03d_P%+02d%+02d_A%+05d_B%+05d_Z%+03d",
+        sprintf(a_sb_name, "%s/%04d/%02d/M2_LAS_%06ld_%06ld_Z%+03d_P%+02d%+02d_A%+05d_B%+05d_Z%+03d",
                 sbig_path, YY, MM, utime[1], utime[0], jz - 100, ii, jj,
                 panel[i][j].pc_mot[0], panel[i][j].pc_mot[1], jz - 100);
 
@@ -1994,7 +1997,7 @@ void action_lasi(int imod)   //take laser pictures indep. of actuators
         ret = pthread_join(sbig_autoth[0], (void **)&status);            //join read
         if (g_sbig_err != 0) {
           old_stat = panel[i][j].pan_stat = STAT_ERR;
-          sprintf(lstr, "SBIG error %d (%+2d,%+2d) %d", g_sbig_err, i - 8, j - 8, panel[i][j].pan_stat);
+          sprintf(lstr, "SBIG error %ld (%+2d,%+2d) %d", g_sbig_err, i - 8, j - 8, panel[i][j].pan_stat);
           put_logfile(LOG_WRN, 0, lstr);
           goto badpan;
         }
@@ -2007,8 +2010,8 @@ void action_lasi(int imod)   //take laser pictures indep. of actuators
 
 badpan:
         if (g_sbig_err > 0)
-          numbad++;   //check if there is a severe SBIG problem
-        sprintf(lstr, "lasi: %2d %2d BADPAN%d %d %d", ii, jj, panel[i][j].pan_stat, g_sbig_err, numbad);
+          numbad++;  //check if there is a severe SBIG problem
+        sprintf(lstr, "lasi: %2d %2d BADPAN%d %ld %d", ii, jj, panel[i][j].pan_stat, g_sbig_err, numbad);
         put_logfile(LOG_ERR, 0, lstr);
 
 goodpan:   //make sure laser is off !!!!  and readout thread terminated
@@ -2034,8 +2037,8 @@ endlasi:
 
 }
 
-
 //--------------------------------------------------------------------
+
 void action_none(int imod)   //
 {
   char lstr[LOGLEN];
@@ -2067,11 +2070,11 @@ void action_cb(FL_OBJECT *ob, long cmd)
 
   int k, i, j, it, jt, istat, ix, iy, jz, foca, focb, ncmd, idur, npan;
   int ipan = -1, jpan = -1, numpan = -1, exc_cmd, idum;
-  int tmp_pan[17][17] = {289 * 0};
-  int tmp_mov[17][17] = {289 * 0};
+  int tmp_pan[17][17] = {{289 * 0}};
+  int tmp_mov[17][17] = {{289 * 0}};
   int moveflg;
-  unsigned long isec, isec0, iusec, iusec0;
-  char str[10], xstr[10];
+  long isec, isec0, iusec, iusec0;
+  char str[20], xstr[20];
   char lstr[LOGLEN];
   long jcmd;
   double x, y, dd, xcmd, xdur;
@@ -2083,7 +2086,7 @@ void action_cb(FL_OBJECT *ob, long cmd)
   moveflg = -1;
   if (ob != NULL && global_action > 0) return;  //this should never happen, but ????
 
-  if (cmd == GUIcmd_LSAD || cmd == GUIcmd_LSON)    //flag laser on if needed...
+  if (cmd == GUIcmd_LSAD || cmd == GUIcmd_LSON)  //flag laser on if needed...
     if (g_AMCstat != 5) {
       g_AMCstat0 = g_AMCstat;
       g_AMCstat = 5;
@@ -2103,9 +2106,9 @@ void action_cb(FL_OBJECT *ob, long cmd)
         fl_set_input(FLset_Az, xstr);
         sprintf(xstr, "%d", global_foclen);
         fl_set_input(FLset_Foc, xstr);
-        sprintf(xstr, "%d", global_xoff);
+        sprintf(xstr, "%f", global_xoff);
         fl_set_input(FLset_X, xstr);
-        sprintf(xstr, "%d", global_yoff);
+        sprintf(xstr, "%f", global_yoff);
         fl_set_input(FLset_Y, xstr);
       }
     }
@@ -2127,33 +2130,33 @@ void action_cb(FL_OBJECT *ob, long cmd)
     fl_set_cursor(FL_ObjWin(FLexit), FL_BUSY_CURSOR);
     mode_cb(NULL, -9);  //deactivate all action-buttons
 
-    if      (cmd == GUIcmd_NONE) sprintf(lstr, "------> action %2d=NONE started", cmd);
-    else if (cmd == GUIcmd_TEST) sprintf(lstr, "------> action %2d=TEST started", cmd);
-    else if (cmd == GUIcmd_INIT) sprintf(lstr, "------> action %2d=INIT started", cmd);
-    else if (cmd == GUIcmd_ADJS) sprintf(lstr, "------> action %2d=ADJS started", cmd);
-    else if (cmd == GUIcmd_LSON) sprintf(lstr, "------> action %2d=LSON started", cmd);
-    else if (cmd == GUIcmd_LOFF) sprintf(lstr, "------> action %2d=LOFF started", cmd);
-    else if (cmd == GUIcmd_LSAD) sprintf(lstr, "------> action %2d=LSAD started", cmd);
-    else if (cmd == GUIcmd_CNTR) sprintf(lstr, "------> action %2d=CNTR started", cmd);
-    else if (cmd == GUIcmd_CNT2) sprintf(lstr, "------> action %2d=CNT2 started", cmd);
-    else if (cmd == GUIcmd_DFOC) sprintf(lstr, "------> action %2d=DFOC started", cmd);
-    else if (cmd == GUIcmd_RAND) sprintf(lstr, "------> action %2d=RAND started", cmd);
-    else if (cmd == GUIcmd_MVTO) sprintf(lstr, "------> action %2d=MVTO started", cmd);
-    else if (cmd == GUIcmd_MOVE) sprintf(lstr, "------> action %2d=MOVE started", cmd);
-    else if (cmd == GUIcmd_MOVA) sprintf(lstr, "------> action %2d=MOVA started", cmd);
-    else if (cmd == GUIcmd_MOVB) sprintf(lstr, "------> action %2d=MOVB started", cmd);
-    else if (cmd == GUIcmd_MVMI) sprintf(lstr, "------> action %2d=MVMI started", cmd);
-    else if (cmd == GUIcmd_MVMA) sprintf(lstr, "------> action %2d=MVMA started", cmd);
-    else if (cmd == GUIcmd_CALI) sprintf(lstr, "------> action %2d=CALI started", cmd);
-    else if (cmd == GUIcmd_RQAD) sprintf(lstr, "------> action %2d=RQAD started", cmd);
-    else if (cmd == GUIcmd_PLAD) sprintf(lstr, "------> action %2d=PLAD started", cmd);
-    else if (cmd == GUIcmd_STAD) sprintf(lstr, "------> action %2d=STAD started", cmd);
-    else if (cmd == GUIcmd_ACAD) sprintf(lstr, "------> action %2d=ACAD started", cmd);
-    else if (cmd == GUIcmd_INIF) sprintf(lstr, "------> action %2d=INIF started", cmd);
-    else if (cmd == GUIcmd_INFF) sprintf(lstr, "------> action %2d=INFF started", cmd);
-    else if (cmd == GUIcmd_ZERO) sprintf(lstr, "------> action %2d=ZERO started", cmd);
-    else if (cmd == GUIcmd_NEW1) sprintf(lstr, "------> action %2d=TADJ started", cmd);
-    else                         sprintf(lstr, "------> action %2d=???? started", cmd);
+    if      (cmd == GUIcmd_NONE) sprintf(lstr, "------> action %2ld=NONE started", cmd);
+    else if (cmd == GUIcmd_TEST) sprintf(lstr, "------> action %2ld=TEST started", cmd);
+    else if (cmd == GUIcmd_INIT) sprintf(lstr, "------> action %2ld=INIT started", cmd);
+    else if (cmd == GUIcmd_ADJS) sprintf(lstr, "------> action %2ld=ADJS started", cmd);
+    else if (cmd == GUIcmd_LSON) sprintf(lstr, "------> action %2ld=LSON started", cmd);
+    else if (cmd == GUIcmd_LOFF) sprintf(lstr, "------> action %2ld=LOFF started", cmd);
+    else if (cmd == GUIcmd_LSAD) sprintf(lstr, "------> action %2ld=LSAD started", cmd);
+    else if (cmd == GUIcmd_CNTR) sprintf(lstr, "------> action %2ld=CNTR started", cmd);
+    else if (cmd == GUIcmd_CNT2) sprintf(lstr, "------> action %2ld=CNT2 started", cmd);
+    else if (cmd == GUIcmd_DFOC) sprintf(lstr, "------> action %2ld=DFOC started", cmd);
+    else if (cmd == GUIcmd_RAND) sprintf(lstr, "------> action %2ld=RAND started", cmd);
+    else if (cmd == GUIcmd_MVTO) sprintf(lstr, "------> action %2ld=MVTO started", cmd);
+    else if (cmd == GUIcmd_MOVE) sprintf(lstr, "------> action %2ld=MOVE started", cmd);
+    else if (cmd == GUIcmd_MOVA) sprintf(lstr, "------> action %2ld=MOVA started", cmd);
+    else if (cmd == GUIcmd_MOVB) sprintf(lstr, "------> action %2ld=MOVB started", cmd);
+    else if (cmd == GUIcmd_MVMI) sprintf(lstr, "------> action %2ld=MVMI started", cmd);
+    else if (cmd == GUIcmd_MVMA) sprintf(lstr, "------> action %2ld=MVMA started", cmd);
+    else if (cmd == GUIcmd_CALI) sprintf(lstr, "------> action %2ld=CALI started", cmd);
+    else if (cmd == GUIcmd_RQAD) sprintf(lstr, "------> action %2ld=RQAD started", cmd);
+    else if (cmd == GUIcmd_PLAD) sprintf(lstr, "------> action %2ld=PLAD started", cmd);
+    else if (cmd == GUIcmd_STAD) sprintf(lstr, "------> action %2ld=STAD started", cmd);
+    else if (cmd == GUIcmd_ACAD) sprintf(lstr, "------> action %2ld=ACAD started", cmd);
+    else if (cmd == GUIcmd_INIF) sprintf(lstr, "------> action %2ld=INIF started", cmd);
+    else if (cmd == GUIcmd_INFF) sprintf(lstr, "------> action %2ld=INFF started", cmd);
+    else if (cmd == GUIcmd_ZERO) sprintf(lstr, "------> action %2ld=ZERO started", cmd);
+    else if (cmd == GUIcmd_NEW1) sprintf(lstr, "------> action %2ld=TADJ started", cmd);
+    else                         sprintf(lstr, "------> action %2ld=???? started", cmd);
 
     put_logfile(LOG_OK_, 0, lstr);  //log only if not called from macro
   }
@@ -2198,7 +2201,6 @@ void action_cb(FL_OBJECT *ob, long cmd)
       panel[i][j].pc_moveto[1] = y;
       panel[i][j].pan_stat = STAT_TDO;
 
-
       tmp_pan[i][j] = 1;
 
     }
@@ -2211,8 +2213,11 @@ void action_cb(FL_OBJECT *ob, long cmd)
              cmd == GUIcmd_CNTR ||    //  final status of the panel
              cmd == GUIcmd_CNT2 ||    //
              cmd == GUIcmd_ACAD) {
-      if (cmd == GUIcmd_INIT || cmd == GUIcmd_INIF || cmd == GUIcmd_CNTR || cmd == GUIcmd_CNT2) moveflg = 0;
-      else moveflg = -1;
+
+      if (cmd == GUIcmd_INIT || cmd == GUIcmd_INIF || cmd == GUIcmd_CNTR || cmd == GUIcmd_CNT2)
+        moveflg = 0;
+      else
+        moveflg = -1;
 
       ncmd   = 0;
       for (i = 0; i < 17; i++)         //flag all 'selected' panels as 'todo' and prepare action if needed
@@ -2356,7 +2361,8 @@ void action_cb(FL_OBJECT *ob, long cmd)
 
       for (i = 0; i < 17; i++)
         for (j = 0; j < 17; j++) {
-          if (ob != NULL && p_but[i][j].select != 0) panel[i][j].pan_stat = STAT_TDO; //if we are called with NULL (i.e. from macro) ==> TDO already set
+          if (ob != NULL && p_but[i][j].select != 0)
+            panel[i][j].pan_stat = STAT_TDO; //if we are called with NULL (i.e. from macro) ==> TDO already set
           if (panel[i][j].pan_stat == STAT_TDO) {
             ncmd++;
             panel[i][j].pc_moveto[0] = panel[i][j].new[0][jz][0] + panel[i][j].mov_dab[0];
@@ -2367,7 +2373,7 @@ void action_cb(FL_OBJECT *ob, long cmd)
     else {
       ncmd = 0;
       exc_cmd = CMD_NONE;
-      sprintf(lstr, "command %d not yet implemented", cmd);
+      sprintf(lstr, "command %ld not yet implemented", cmd);
       put_logfile(LOG_WRN, 0, lstr);
     }
 
@@ -2480,7 +2486,7 @@ void action_cb(FL_OBJECT *ob, long cmd)
     npan = ncmd;
 //  execute the command
     if (ncmd <= 0) {
-      sprintf(lstr, "nothing to execute for %d (ncmd %d)...", jcmd, ncmd);
+      sprintf(lstr, "nothing to execute for %ld (ncmd %d)...", jcmd, ncmd);
       put_logfile(LOG_DB1, 0, lstr);
     }
     else {
@@ -2533,11 +2539,9 @@ void action_cb(FL_OBJECT *ob, long cmd)
           sprintf(lstr, "redo a query on %d panels", ncmd);
           put_logfile(LOG_WRN, 0, lstr);
           AMC_exec_cmd(panel, CMD_QUERY, numpan, ipan, jpan); // <========== additional query in case
-
         }
         AMCtime(utime);
-        if (g_updtime < 900000) g_updtime = utime[5] + 20; // wait 30s for next possible auto_adjust after any move
-
+        if (g_updtime < 900000) g_updtime = utime[4] + 20; // wait 30s for next possible auto_adjust after any move
 
       }
       else {      // it was a laser command ==> check box instead of actuator for communic.problems
@@ -2586,7 +2590,7 @@ void action_cb(FL_OBJECT *ob, long cmd)
 //        now set final status according to actuator values
         for (i = 0; i < 17; i++)
           for (j = 0; j < 17; j++)
-            if (panel[i][j].pan_stat > STAT_BAD)
+            if (panel[i][j].pan_stat > STAT_BAD) {
               if (abs(panel[i][j].act_mot[0]) > 6000 ||
                   abs(panel[i][j].act_mot[1]) > 6000)
                 panel[i][j].mot_stat = panel[i][j].pan_stat = STAT_NIN;
@@ -2596,28 +2600,31 @@ void action_cb(FL_OBJECT *ob, long cmd)
                 panel[i][j].mot_stat = panel[i][j].pan_stat = STAT_ERR;
               else
                 panel[i][j].mot_stat = panel[i][j].pan_stat = STAT_OK_;
+            }
       }
       else if (exc_cmd == CMD_LSON) { //        now set final status according to laser values
         for (i = 0; i < 17; i++)
           for (j = 0; j < 17; j++)
-            if (tmp_pan[i][j] > 0)
+            if (tmp_pan[i][j] > 0) {
               if (panel[i][j].pan_stat != STAT_OK1 ||  panel[i][j].box_stat > 2) {
                 panel[i][j].pan_stat = STAT_BCM;
                 panel[i][j].box_stat = 0;
               }
               else if (panel[i][j].laser != LAS_ON) panel[i][j].pan_stat = STAT_ERR;
               else                                    panel[i][j].pan_stat = STAT_OK_;
+            }
       }
       else if (exc_cmd == CMD_LOFF) { //        now set final status according to laser values
         for (i = 0; i < 17; i++)
           for (j = 0; j < 17; j++)
-            if (tmp_pan[i][j] > 0)
+            if (tmp_pan[i][j] > 0) {
               if (panel[i][j].pan_stat != STAT_OK1 ||  panel[i][j].box_stat > 2) {
                 panel[i][j].pan_stat = STAT_BCM;
                 panel[i][j].box_stat = 0;
               }
               else if (panel[i][j].laser != LAS_OFF) panel[i][j].pan_stat = STAT_ERR;
               else                                    panel[i][j].pan_stat = STAT_OK_;
+            }
       }
 
     }
@@ -2625,7 +2632,7 @@ void action_cb(FL_OBJECT *ob, long cmd)
   AMC_check_gui(0, -2.);
 
   nok0 = nerr0 = nudf0 = nmov0 = nlas0 = ncom0 = 0;
-  nerr1 = nudf1 =         nlas1 = ncom1 = 0;
+  nerr1 = nudf1 = nlas1 = ncom1 = 0;
 
   for (i = 0; i < 17; i++)
     for (j = 0; j < 17; j++)
@@ -2690,16 +2697,16 @@ void action_cb(FL_OBJECT *ob, long cmd)
           else if (jcmd == GUIcmd_INIT || jcmd == GUIcmd_INFF || jcmd == GUIcmd_INIF)
             upd_act_pan(i, j, 1, -1);
 
-          if (moveflg >= 0)
+          if (moveflg >= 0) {
             if (nerrx == 0)  log_act(i, j, LOG_ACT, -2, jcmd);
             else              log_act(i, j, LOG_ERR, 0, jcmd);
-
+          }
         }
       }
 
-  sprintf(lstr, " CMD %2d: Panels in state: ok %3d, err %3d, undef %3d, com %3d; lasers on %3d", jcmd, nok0, nerr0, nudf0, ncom0, nlas0);
+  sprintf(lstr, " CMD %2ld: Panels in state: ok %3d, err %3d, undef %3d, com %3d; lasers on %3d", jcmd, nok0, nerr0, nudf0, ncom0, nlas0);
   put_logfile(LOG_INF, 0, lstr);
-  sprintf(lstr, " CMD %2d: Selectd Panels in state: err %3d, undef %3d, com %3d; lasers on %3d", jcmd,     nerr1, nudf1, ncom1, nlas1);
+  sprintf(lstr, " CMD %2ld: Selectd Panels in state: err %3d, undef %3d, com %3d; lasers on %3d", jcmd,     nerr1, nudf1, ncom1, nlas1);
   put_logfile(LOG_INF, 0, lstr);
 
   // put complete GUI back to standard state again if we are not called from a macro
@@ -2746,7 +2753,7 @@ void action_cb(FL_OBJECT *ob, long cmd)
 
     fl_set_object_label(FL_durat, str);
 
-    sprintf(lstr, "<---- action %2d ended after %4.1fs   (for %3d panels)", cmd, xdur, npan);
+    sprintf(lstr, "<---- action %2ld ended after %4.1fs   (for %3d panels)", cmd, xdur, npan);
     put_logfile(LOG_INF, 0, lstr);  //log only if not called from macro
     if (g_updtime < 900000) g_updtime += 30; // wait another 30s for next possible auto_adjust after an CC command
 
@@ -2762,15 +2769,15 @@ void action_cb(FL_OBJECT *ob, long cmd)
   }
 }
 
-
 //--------------------------------------------------------------------
+
 int  AMC_check_gui(int n, double scroll)
 {
   /*  check if 'BREAK' from GUI or CC; return 1 if 'BREAK', else 0
       n <0   :  intermediate  update GUI and return
       n =0   :  update GUI and return immediately
       n =999 :  update GUI, reset 'BREAK'-flag and return
-   */
+  */
 
 #define MAXSLEEP  5000
 
@@ -2795,19 +2802,19 @@ int  AMC_check_gui(int n, double scroll)
 }
 
 //--------------------------------------------------------------------
+
 void push_dummy(FL_OBJECT *ob, long n)
 {
   printf("dummy pressed \n");
 
-  sprintf(lstr, "dummy button %d pressed", n);
+  sprintf(lstr, "dummy button %ld pressed", n);
   put_logfile(LOG_DB1, 0, lstr);
 
   return;
 }
 
-
-
 //--------------------------------------------------------------------
+
 void push_pan(FL_OBJECT *ob, long n)
 {
   int i, j, k, l, m, ii, jj, i0, j0, ib, jsele, jqsele, jcolr, jbut, nsele;
@@ -3024,7 +3031,6 @@ void push_pan(FL_OBJECT *ob, long n)
 
 }
 
-
 //--------------------------------------------------------------------
 
 void push_pwr(FL_OBJECT *obj, long m)
@@ -3047,7 +3053,7 @@ void push_pwr(FL_OBJECT *obj, long m)
     return;
   }
 
-  sprintf(lstr, "power button %d pressed", m);
+  sprintf(lstr, "power button %ld pressed", m);
   put_logfile(LOG_DB1, 0, lstr);
 
   if (ob != NULL) fl_set_object_color(ob, BUSY_COL, BUSY_COL);
@@ -3075,7 +3081,7 @@ void push_pwr(FL_OBJECT *obj, long m)
       power[n].request = ibut;
       if (n < 7) {
         power[n + 8].request = ibut;                   //set both channels for chains
-        sprintf(lstr, "request power %d to %d (actual=%d) %d", m, ibut, power[n].actual, g_pwr_req);
+        sprintf(lstr, "request power %ld to %d (actual=%d) %d", m, ibut, power[n].actual, g_pwr_req);
         put_logfile(LOG_DB1, 0, lstr);
 
         // we are changing power of a chain --> set all panels to undef
@@ -3117,6 +3123,7 @@ void log_err_ctr()
       }
 
 }
+
 //--------------------------------------------------------------------
 
 void exit_cb(FL_OBJECT *obj, long n)
@@ -3207,18 +3214,17 @@ void exit_cb(FL_OBJECT *obj, long n)
   AMCtime(utime);
   fl_finish();
 //close log-file
-  fprintf(f_log, "%06d ---------------e-n-d---------------------- \n", utime[0]);
+  fprintf(f_log, "%06ld ---------------e-n-d---------------------- \n", utime[0]);
   fclose(f_log);
 
-  fprintf(f_err, "%06d ---------------e-n-d---------------------- \n", utime[0]);
+  fprintf(f_err, "%06ld ---------------e-n-d---------------------- \n", utime[0]);
   fclose(f_err);
 
   exit(0);
 }
-//--------------------------------------------------------------------
-
 
 //--------------------------------------------------------------------
+
 void lut_cb(FL_OBJECT *ob, long n)
 {
   int i, j;
@@ -3227,12 +3233,13 @@ void lut_cb(FL_OBJECT *ob, long n)
   sprintf(lstr, "did read %d LUT- and %d NEW-files", i, j);
   put_logfile(LOG_DB1, 0, lstr);
 }
+
 //--------------------------------------------------------------------
+
 void mode_cb(FL_OBJECT *ob, long m)
 {
   int i, n, flag;
   long utime[5];
-
 
   n = m;
 
@@ -3248,9 +3255,10 @@ void mode_cb(FL_OBJECT *ob, long m)
     flag = 0;
     global_mode = n;
 
-    if (g_ccstat > 0)
+    if (g_ccstat > 0) {
       if (n == MODE_MANU) fl_set_object_color(FLin_time, 404, 414);   //blue
       else              fl_set_object_color(FLin_time, 403, 413);     //red
+    }
 
     if (n == MODE_MANU) {              //disable interpretation of commands if MANU
       g_updtime = 999999;                  //   disable autoadjust
@@ -3269,7 +3277,7 @@ void mode_cb(FL_OBJECT *ob, long m)
     else {
       g_ccrec = 1;
       AMCtime(utime);
-      g_updtime = utime[5] + 30;           // wait 30 sec for next possible auto_adjust
+      g_updtime = utime[4] + 30;           // wait 30 sec for next possible auto_adjust
       fl_deactivate_object(FLset_Zd);
       fl_deactivate_object(FLset_Az);
       fl_deactivate_object(FLset_Foc);
@@ -3314,7 +3322,6 @@ void mode_cb(FL_OBJECT *ob, long m)
     fl_set_object_lcol(FLmod_grp, 901);
   }
 
-
   for (i = 0; command[i].grp > 0; i++) {
     if (command[i].grp <= n) {
       fl_activate_object(command[i].obj);
@@ -3335,33 +3342,30 @@ void mode_cb(FL_OBJECT *ob, long m)
     fl_set_object_lcol(FLmov_grp, 901);
   }
 
-
-  if      (global_mode == MODE_AUTO) sprintf(lstr, "set mode: AUTO,%d", m);
-  else if (global_mode == MODE_OPER) sprintf(lstr, "set mode: OPER,%d", m);
-  else if (global_mode == MODE_EXPT) sprintf(lstr, "set mode: EXPT,%d", m);
-  else if (global_mode == MODE_MANU) sprintf(lstr, "set mode: MANU,%d", m);
-  else if (global_mode == MODE_OPER) sprintf(lstr, "set mode: %d, %d", global_mode, m);
-
+  if      (global_mode == MODE_AUTO) sprintf(lstr, "set mode: AUTO,%ld", m);
+  else if (global_mode == MODE_OPER) sprintf(lstr, "set mode: OPER,%ld", m);
+  else if (global_mode == MODE_EXPT) sprintf(lstr, "set mode: EXPT,%ld", m);
+  else if (global_mode == MODE_MANU) sprintf(lstr, "set mode: MANU,%ld", m);
+  else if (global_mode == MODE_OPER) sprintf(lstr, "set mode: %d, %ld", global_mode, m);
 
   put_logfile(LOG_OK_, flag, lstr);
-
 }
 
-
 //--------------------------------------------------------------------
+
 void break_cb(FL_OBJECT *ob, long n)
 {
   int    ibut;
   char   str[10];
 
   global_break = 1;
-  sprintf(lstr, "break button %d pressed", n);
+  sprintf(lstr, "break button %ld pressed", n);
   put_logfile(LOG_DB1, 0, lstr);
 
 }
 
-
 //--------------------------------------------------------------------
+
 void param_cb(FL_OBJECT *ob, long n)
 {
   int    ibut;
@@ -3387,13 +3391,15 @@ void param_cb(FL_OBJECT *ob, long n)
     sprintf(lstr, "StarFoc=%d", global_starFoc);
     break;
   default :
-    sprintf(lstr, "unknown parameter %d", n);
+    sprintf(lstr, "unknown parameter %ld", n);
     break;
   }
   put_logfile(LOG_OK_, 0, lstr);
 
 }
+
 //--------------------------------------------------------------------
+
 void gen_actions(int ix, int iy, int dx, int dy)
 {
   int i, jx, jy;
@@ -3593,8 +3599,8 @@ void gen_actions(int ix, int iy, int dx, int dy)
   command[i].cmd = GUIcmd_NONE;
   command[i].grp = MODE_UDEF;
   i++;
-  jy = jy + dy;
 
+  jy = jy + dy;
   jx = ix;
   obj = fl_add_button(FL_PUSH_BUTTON, jx, jy, dx, dy, "Calibrate");
   fl_set_object_callback(obj, action_cb, GUIcmd_CALI);
@@ -3792,7 +3798,6 @@ void gen_pwr(int jx, int jy, int dxx, int dyy)
   fl_set_object_lsize(obj, FL_NORMAL_SIZE);
 }
 
-
 //--------------------------------------------------------------------
 
 void setting_cb(FL_OBJECT *ob, long n)
@@ -3863,7 +3868,7 @@ void gen_CC(int ix, int iy, int dx, int dy)
     obj = fl_add_box(FL_BORDER_BOX, jx, jy, dx / 2, dy - 3, "000");
   fl_set_object_lstyle(obj, FL_FIXEDBOLD_STYLE);
   fl_set_object_lsize(obj, FL_NORMAL_SIZE);
- 
+
   jx = jx + 1.33 * dx;
   FLset_Zd =
     obj = fl_add_input(FL_INT_INPUT, jx, jy, dx * 0.67, dy - 3, ":Zenith:");
@@ -3879,7 +3884,7 @@ void gen_CC(int ix, int iy, int dx, int dy)
     obj = fl_add_box(FL_BORDER_BOX, jx, jy, dx / 2, dy - 3, "000");
   fl_set_object_lstyle(obj, FL_FIXEDBOLD_STYLE);
   fl_set_object_lsize(obj, FL_NORMAL_SIZE);
-  
+
   jx = jx + 1.33 * dx;
   FLset_Az =
     obj = fl_add_input(FL_INT_INPUT, jx, jy, dx * 0.67, dy - 3, ":Azimut:");
@@ -3978,14 +3983,14 @@ void gen_mode(int ix, int iy, int dx, int dy)
 
   FLmod_grp = fl_bgn_group();
 
-  /*FLmodA=
-    obj = fl_add_button(FL_RADIO_BUTTON,jx,jy,dx,dy," AUTO ");
-  fl_set_object_callback(obj,mode_cb, MODE_AUTO);
-  fl_set_object_color(obj,FL_BUTTON_COL1, SELE_COL);
+  /*FLmodA =
+    obj = fl_add_button(FL_RADIO_BUTTON, jx, jy, dx, dy, " AUTO ");
+  fl_set_object_callback(obj, mode_cb, MODE_AUTO);
+  fl_set_object_color(obj, FL_BUTTON_COL1, SELE_COL);
   fl_set_object_lsize(obj, FL_NORMAL_SIZE);
-  fl_set_object_lstyle(obj,FL_FIXEDBOLD_STYLE);*/
+  fl_set_object_lstyle(obj, FL_FIXEDBOLD_STYLE);*/
 
-  //jx  = jx+dx;
+  //jx  = jx + dx;
   FLmodO =
     obj = fl_add_button(FL_RADIO_BUTTON, jx, jy, dx, dy, " OPER ");
   fl_set_object_callback(obj, mode_cb, MODE_OPER);
@@ -3993,13 +3998,13 @@ void gen_mode(int ix, int iy, int dx, int dy)
   fl_set_object_lsize(obj, FL_NORMAL_SIZE);
   fl_set_object_lstyle(obj, FL_FIXEDBOLD_STYLE);
 
-  /*jx  = jx+dx;
-  FLmodX=
-    obj = fl_add_button(FL_RADIO_BUTTON,jx,jy,dx,dy," EXPERT");
-  fl_set_object_callback(obj,mode_cb, MODE_EXPT);
-  fl_set_object_color(obj,FL_BUTTON_COL1, SELE_COL);
+  /*jx  = jx + dx;
+  FLmodX =
+    obj = fl_add_button(FL_RADIO_BUTTON, jx, jy, dx, dy, " EXPERT");
+  fl_set_object_callback(obj, mode_cb, MODE_EXPT);
+  fl_set_object_color(obj, FL_BUTTON_COL1, SELE_COL);
   fl_set_object_lsize(obj, FL_NORMAL_SIZE);
-  fl_set_object_lstyle(obj,FL_FIXEDBOLD_STYLE);*/
+  fl_set_object_lstyle(obj, FL_FIXEDBOLD_STYLE);*/
 
   jx  = jx + dx;
   FLmodM =
@@ -4045,7 +4050,7 @@ void gen_panel(int jx, int jy, int dxx, int dyy)
           g_j = j;
         }
 
-        sprintf(str, "%+2d %+2d\n \n%2d%2d%2d", i - 8, j - 8,
+        sprintf(str, "%+2ld %+2ld\n \n%2d%2d%2d", i - 8, j - 8,
                 panel[i][j].port[ panel[i][j].portflg[2] ][2] + 1, panel[i][j].cpos[2], panel[i][j].bpos[2]);
         FLpanel[i][j] = fl_add_button(FL_PUSH_BUTTON, ix + dxx * i, iy - dyy * j, dxx, dyy, str);
         fl_set_object_lsize(FLpanel[i][j], FL_SMALL_SIZE);
@@ -4099,7 +4104,7 @@ void gen_panel(int jx, int jy, int dxx, int dyy)
   fl_set_object_callback(obj, push_pan, 10000 + STAT_COM);
   fl_set_object_lsize(obj, FL_NORMAL_SIZE);
   fl_set_object_lstyle(obj, FL_FIXEDBOLD_STYLE);
- 
+
   iy  = iy + dy;
   obj = fl_add_button(FL_NORMAL_BUTTON, ix, iy, dx, dy, "UNDF");
   fl_set_object_color(obj, 110 + STAT_NIN, BUSY_COL);
@@ -4116,7 +4121,7 @@ void gen_panel(int jx, int jy, int dxx, int dyy)
   fl_set_object_color(obj, FL_BUTTON_COL1, BUSY_COL);
   fl_set_object_lsize(obj, FL_NORMAL_SIZE);
   fl_set_object_lstyle(obj, FL_FIXEDBOLD_STYLE);
-  
+
   iy  = iy + dy;
   obj = fl_add_button(FL_NORMAL_BUTTON, ix, iy, dx, dy, " OffLas ");
   fl_set_object_callback(obj, push_pan, 30000 + LAS_OFF);
@@ -4136,13 +4141,13 @@ void gen_panel(int jx, int jy, int dxx, int dyy)
   dy = dyy * 0.50;
   ix = jx;
   for (ip = 1; ip < 5; ip++) {
-    sprintf(str, "CH%1d", ip);
+    sprintf(str, "CH%1ld", ip);
     obj = fl_add_button(FL_NORMAL_BUTTON, ix, iy, dx, dy, str);
     fl_set_object_callback(obj, push_pan, 20000 + ip - 1);
     fl_set_object_color(obj, FL_BUTTON_COL1, BUSY_COL);
     if (ip == 4)
       continue;
-    sprintf(str, "CH%1d", ip + 4);
+    sprintf(str, "CH%1ld", ip + 4);
     obj = fl_add_button(FL_NORMAL_BUTTON, ix, iy + dy, dx, dy, str);
     fl_set_object_callback(obj, push_pan, 20000 + ip - 1 + 4);
     fl_set_object_color(obj, FL_BUTTON_COL1, BUSY_COL);
@@ -4153,11 +4158,11 @@ void gen_panel(int jx, int jy, int dxx, int dyy)
   dx = dxx * 0.70;                       // Panel-group select
   ix = jx;
   for (ip = 1; ip < 5; ip++) {
-    sprintf(str, "PG%1d", ip);
+    sprintf(str, "PG%1ld", ip);
     obj = fl_add_button(FL_NORMAL_BUTTON, ix, iy, dx, dy, str);
     fl_set_object_callback(obj, push_pan, 40000 + ip);
     fl_set_object_color(obj, FL_BUTTON_COL1, BUSY_COL);
-    sprintf(str, "PG%1d", ip + 4);
+    sprintf(str, "PG%1ld", ip + 4);
     obj = fl_add_button(FL_NORMAL_BUTTON, ix, iy + dy, dx, dy, str);
     fl_set_object_callback(obj, push_pan, 40000 + ip + 4);
     fl_set_object_color(obj, FL_BUTTON_COL1, BUSY_COL);
@@ -4207,7 +4212,6 @@ void temp_tm(int id, void *jtmp)               //xxSBxx
 
   fl_set_object_label(FLsbig_temp, xtmp);
   TMtemp = fl_add_timeout(30000, temp_tm, NULL); //and reschedule myself at 30 sec
-
 }
 
 //--------------------------------------------------------------------
@@ -4229,6 +4233,7 @@ void end_distth(int i)
   fl_set_object_color(FLdist_on, FL_BUTTON_COL1, ACTV_COL);
   g_dist_th = S_NULL_TH;
 }
+
 //--------------------------------------------------------------------
 
 void end_sbigth(int i)
@@ -4303,6 +4308,7 @@ void end_sbigth(int i)
 }
 
 //--------------------------------------------------------------------
+
 void repo_cc(FL_OBJECT *ob, long n)
 {
   char xstr[20];
@@ -4329,7 +4335,7 @@ void repo_cc(FL_OBJECT *ob, long n)
   g_cc_tim0 = g_cc_time;
   g_ccstat = 0;
 
-  sprintf(xstr, "%02d:%02d:%02d", g_cc_time / 10000, (g_cc_time / 100) % 100, g_cc_time % 100);
+  sprintf(xstr, "%02ld:%02ld:%02ld", g_cc_time / 10000, (g_cc_time / 100) % 100, g_cc_time % 100);
   fl_set_object_label(FLin_time, xstr);
 
   sprintf(xstr, "%d", (int)g_cc_zd);
@@ -4355,17 +4361,17 @@ void exec_cc(FL_OBJECT *ob, long n)
   g_ccstat = 1;
   if (global_mode == MODE_MANU) {                 //skip command ....
     g_cc_cmd = 0;
-    sprintf(lstr, "Command skipped... %d %d", n, g_cc_cmd);
+    sprintf(lstr, "Command skipped... %ld %ld", n, g_cc_cmd);
     put_logfile(LOG_ERR, 0, lstr);
     return;
   }
 
-  sprintf(lstr, "Exec CC Command %d %d", n, g_cc_cmd);
+  sprintf(lstr, "Exec CC Command %ld %ld", n, g_cc_cmd);
   put_logfile(LOG_DB1, 0, lstr);
 
   if (n > 200) {            //do something with SBIG
     if (g_sbig_th > 0) {
-      sprintf(lstr, "REJECT CC Command %d %d : SBIG busy", n, g_cc_cmd);
+      sprintf(lstr, "REJECT CC Command %ld %ld : SBIG busy", n, g_cc_cmd);
       put_logfile(LOG_ERR, 0, lstr);
       g_cc_cmd = 0;
       return;
@@ -4375,17 +4381,17 @@ void exec_cc(FL_OBJECT *ob, long n)
     if (n == 201) {
       g_sbig_temp = g_cc_temp;
       if (g_sbigon == 1) {
-        sbig_cb(NULL, -1);      //already switched on, only set temp
+        sbig_cb(NULL, -1);        //already switched on, only set temp
       }
       else {
-        sbigonoff_cb(NULL, 1);      //try to switch on
+        sbigonoff_cb(NULL, 1);    //try to switch on
       }
     }
     else if (n == 202) {
-      sbigonoff_cb(NULL, -1);       //try to switch of
+      sbigonoff_cb(NULL, -1);     //try to switch of
     }
     else if (n == 203) {
-      sbig_cb(NULL, g_cc_filt);  //set filterwheel
+      sbig_cb(NULL, g_cc_filt);   //set filterwheel
     }
     else if (n == 211) {
       sbig_cb(NULL, 2111);        //start takeing pict frame
@@ -4408,7 +4414,7 @@ void exec_cc(FL_OBJECT *ob, long n)
       printf(" UNKNN\n");
     }
     g_cc_cmd = 0;   // claim we have finished the command
-    sprintf(lstr, "pseudo finished Command %d %d", n, g_cc_cmd);
+    sprintf(lstr, "pseudo finished Command %ld %ld", n, g_cc_cmd);
     put_logfile(LOG_DB1, 0, lstr);
   }
   else if (global_action > 0) {                    //there is something going on ....
@@ -4424,7 +4430,7 @@ void exec_cc(FL_OBJECT *ob, long n)
     }
     else {
       g_cc_cmd = 0;                            //delay operation for some time
-      sprintf(lstr, "busy, cannot execute command yet, will try later%d", n);
+      sprintf(lstr, "busy, cannot execute command yet, will try later %ld", n);
       put_logfile(LOG_DB1, 0, lstr);
       usleep(100000);                           //avoid too dense loop
       g_cc_cmd = n;
@@ -4432,7 +4438,7 @@ void exec_cc(FL_OBJECT *ob, long n)
   }
   else {                                            //nothing going on ==> execute new command
     g_cc_cmd = -n;
-    sprintf(lstr, "start executing  Command %d %d", n, g_cc_cmd);
+    sprintf(lstr, "start executing  Command %ld %ld", n, g_cc_cmd);
     put_logfile(LOG_DB1, 0, lstr);
     col = 400;
     if (n == 11) {
@@ -4467,16 +4473,16 @@ void exec_cc(FL_OBJECT *ob, long n)
     else {
       g_cc_cmd = 0;
       g_ccstat = 2;
-      sprintf(xstr, "ILLEG", n);
+      sprintf(xstr, "ILLEG: %ld", n);
       col = 403;
     }
 
     if (col > 0) {
       fl_set_object_label(FLcmd_cmd, xstr);
       fl_set_object_color(FLcmd_cmd, col, col + 10);
-      sprintf(xstr, "%02d:%02d:%02d", g_cc_timc / 10000, (g_cc_timc / 100) % 100, g_cc_timc % 100);
+      sprintf(xstr, "%02ld:%02ld:%02ld", g_cc_timc / 10000, (g_cc_timc / 100) % 100, g_cc_timc % 100);
       fl_set_object_label(FLcmd_time, xstr);
-      sprintf(lstr, "executing  Command %d %d", n, cmd);
+      sprintf(lstr, "executing  Command %ld %d", n, cmd);
       put_logfile(LOG_DB1, 0, lstr);
       fl_set_button(obj, 1);   //set corresponding action-button
       action_cb(obj,  cmd);
@@ -4503,13 +4509,15 @@ int chk_adj()
       }
   return n;
 }
+
 //--------------------------------------------------------------------
 
 int AMC_idle(XEvent *iq, void *jq)
 {
   int ret, cmd, n, m, npwr, nadj;
-  int i, j, k;
   FL_OBJECT *obj;
+
+  int i, j, k;
 
   fl_gettime(&isec0, &iusec0);
 
@@ -4559,9 +4567,9 @@ int AMC_idle(XEvent *iq, void *jq)
       if (ret == 1) {
         // select only 'ERR' and 'UNDF' state panels
         /* we always want to center all panels now.
-        push_pan(NULL, -90000);         //unselect all
-        push_pan(NULL, 10000+STAT_NIN);  //select undef
-        push_pan(NULL, 10000+STAT_ERR);  //select err
+        push_pan(NULL, -90000);           //unselect all
+        push_pan(NULL, 10000 + STAT_NIN); //select undef
+        push_pan(NULL, 10000 + STAT_ERR); //select err
         AMC_check_gui(0, -2.);
         */
         // Init Fast
@@ -4722,7 +4730,12 @@ int AMC_gui_init()
         p_but[i][j].status = STAT_NOT;
       }
   fl_set_border_width(-3);
-  fl_init();
+  // >>> Fix for missing fl_init() function in newer versions of libforms. >>>
+  //fl_init();
+  int argc = 1;
+  static char *tmp = "random_command";
+  fl_initialize(&argc, &tmp, 0, 0, 0);
+  // <<< Fix for missing fl_init() function in newer versions of libforms. <<<
   col_define();
 
   ix = 0;
@@ -5056,7 +5069,7 @@ void view_cb(FL_OBJECT *ob, long n)
   int i;
   int mode, dinv, inv;
 
-  sprintf(lstr, "view button %d pressed", n);
+  sprintf(lstr, "view button %ld pressed", n);
   put_logfile(LOG_DB1, 0, lstr);
 
   g_viewold = g_viewmode;
@@ -5094,7 +5107,7 @@ void save_cb(FL_OBJECT *ob, long n)
     if(g_pict_filt == 0)
       sprintf(fnam0, "Dark");
     else
-      sprintf(fnam0, g_cc_source);
+      sprintf(fnam0, "%s", g_cc_source);
     strncpy(&fnam0[0], (s = fl_show_input("Name: <source>_<special>", &fnam0[0])) ? s : "", 1000);
     if (s == NULL)
       return;
@@ -5111,9 +5124,9 @@ void save_cb(FL_OBJECT *ob, long n)
     AMCtime(utime);
     YY = utime[1] / 10000 + 2000;
     MM = (utime[1] / 100) % 100;
-    snprintf(fname, LOGLEN, "%s/%04d/%02d/M2_AMC_%06d_%06d_F%d_X%05d_Z%+03d_A%+04d_%s.fits",
+    snprintf(fname, LOGLEN, "%s/%04d/%02d/M2_AMC_%06ld_%06ld_F%d_X%05d_Z%+03d_A%+04d_%s.fits",
              sbig_path, YY, MM, utime[1], utime[0], g_pict_filt, g_pict_expos, (int)pct_zenit, (int)pct_azim, fnam0);
-    snprintf(fnamt, LOGLEN, "%s/%04d/%02d/M2_AMC_%06d_%06d_F%d_X%05d_Z%+03d_A%+04d_%s.motor",
+    snprintf(fnamt, LOGLEN, "%s/%04d/%02d/M2_AMC_%06ld_%06ld_F%d_X%05d_Z%+03d_A%+04d_%s.motor",
              sbig_path, YY, MM, utime[1], utime[0], g_pict_filt, g_pict_expos, (int)pct_zenit, (int)pct_azim, fnam0);
   }
   else if (n < -10) { // SBIG images from SA
@@ -5124,7 +5137,7 @@ void save_cb(FL_OBJECT *ob, long n)
     if(g_pict_filt == 0)
       sprintf(fnam0, "Dark");
     else
-      sprintf(fnam0, g_cc_source);
+      sprintf(fnam0, "%s", g_cc_source);
 
     for (i = 0; fnam0[i] != 0; i++)
       if ((fnam0[i] < 'a' || fnam0[i] > 'z')
@@ -5138,9 +5151,9 @@ void save_cb(FL_OBJECT *ob, long n)
     AMCtime(utime);
     YY = utime[1] / 10000 + 2000;
     MM = (utime[1] / 100) % 100;
-    snprintf(fname, LOGLEN, "%s/%04d/%02d/M2_CYC_%06d_%06d_F%d_X%05d_Z%+03d_A%+04d_%s.fits",
+    snprintf(fname, LOGLEN, "%s/%04d/%02d/M2_CYC_%06ld_%06ld_F%d_X%05d_Z%+03d_A%+04d_%s.fits",
              sbig_path, YY, MM, utime[1], utime[0], g_pict_filt, g_pict_expos, (int)pct_zenit, (int)pct_azim, fnam0);
-    snprintf(fnamt, LOGLEN, "%s/%04d/%02d/M2_CYC_%06d_%06d_F%d_X%05d_Z%+03d_A%+04d_%s.motor",
+    snprintf(fnamt, LOGLEN, "%s/%04d/%02d/M2_CYC_%06ld_%06ld_F%d_X%05d_Z%+03d_A%+04d_%s.motor",
              sbig_path, YY, MM, utime[1], utime[0], g_pict_filt, g_pict_expos, (int)pct_zenit, (int)pct_azim, fnam0);
   }
   else {
@@ -5155,7 +5168,7 @@ void save_cb(FL_OBJECT *ob, long n)
 
 // and store actuator settings when picture taken
 
-  snprintf(lstr, LOGLEN, "saving %s %d", fnamt, nelements);
+  snprintf(lstr, LOGLEN, "saving %s %ld", fnamt, nelements);
   put_logfile(LOG_SBG, 0, lstr);
 
   param = fopen(fnamt, "w");
@@ -5168,10 +5181,10 @@ void save_cb(FL_OBJECT *ob, long n)
         fprintf(param, "%s\n", lstr);
       }
 
-  snprintf(lstr, LOGLEN, "saved %s %d", fnamt, nelements);
+  snprintf(lstr, LOGLEN, "saved %s %ld", fnamt, nelements);
   put_logfile(LOG_SBG, 0, lstr);
 
-  snprintf(lstr, LOGLEN, "saving %s %d", fname, nelements);
+  snprintf(lstr, LOGLEN, "saving %s %ld", fname, nelements);
   put_logfile(LOG_SBG, 0, lstr);
 
   fits_create_file(&fptr, fname, &status);
@@ -5197,7 +5210,7 @@ void save_cb(FL_OBJECT *ob, long n)
   fits_report_error(param, status);
   fclose(param);
 
-  snprintf(lstr, LOGLEN, "saved %s %d", fname, nelements);
+  snprintf(lstr, LOGLEN, "saved %s %ld", fname, nelements);
   put_logfile(LOG_SBG, 0, lstr);
 
   g_pictcnt++;
@@ -5305,12 +5318,12 @@ void sbig_cb(FL_OBJECT *ob, long n)
       fl_set_button(FLfilt[n], 1);
     }
     ret = pthread_create(&sbig_threads[0], NULL, Filter_th, NULL);
-    sprintf(lstr, "set Filter: %d ", n);
+    sprintf(lstr, "set Filter: %ld ", n);
     put_logfile(LOG_SBG, 0, lstr);
   }
 
   else if (n > 1000) { // take pictures
-    sprintf(lstr, "take picture: %d ", n - 1000);
+    sprintf(lstr, "take picture: %ld ", n - 1000);
     put_logfile(LOG_SBG, 0, lstr);
     cc = 0;
     if (n > 2000) {
@@ -5541,7 +5554,7 @@ void disto_cb(FL_OBJECT *ob, long m)          //xxDDxx
     if (i < 16000 || i > 18000) {
       icol = FL_RED, i = -1;
     }
-    else                     icol = FL_BUTTON_COL1;
+    else                      icol = FL_BUTTON_COL1;
     sprintf(str, "D=%5d", i);
     fl_set_object_color(FLdistance, icol, BUSY_COL);
 
@@ -5717,7 +5730,7 @@ void gen_disto(int ix, int iy, int dx, int dy)
 void gen_sbig(int ix, int iy, int dx, int dy)
 {
   int k, i, j, jx, jy, jx1, jy1, jx2, jy2;
-  char   str[10];
+  char   str[20];
   FL_OBJECT *obj;
 
 
@@ -5919,17 +5932,17 @@ void gen_sbig(int ix, int iy, int dx, int dy)
   jy2 = jy;
 
   jx = jx + dx;
-  jy  = jy1 - dy - 5;
+  jy = jy1 - dy - 5;
   obj = fl_add_button(FL_NORMAL_BUTTON, jx + dx / 2, jy, dx / 2, dy, "Save");
-  fl_set_object_callback(obj, save_cb,  1);
+  fl_set_object_callback(obj, save_cb, 1);
   fl_set_object_color(obj, FL_BUTTON_COL1, BUSY_COL);
   fl_set_object_lsize(obj, FL_MEDIUM_SIZE);
   fl_set_object_lstyle(obj, FL_FIXEDBOLD_STYLE);
 
-  jy  = jy + dy + 5;
+  jy = jy + dy + 5;
   FL_pict =
     obj = fl_add_button(FL_NORMAL_BUTTON, jx - 10, jy, dx + 10, dy, "Get Pict");
-  fl_set_object_callback(obj, sbig_cb,  1111);
+  fl_set_object_callback(obj, sbig_cb, 1111);
   fl_set_object_color(obj, FL_BUTTON_COL1, BUSY_COL);
   fl_set_object_lsize(obj, FL_MEDIUM_SIZE);
   fl_set_object_lstyle(obj, FL_FIXEDBOLD_STYLE);
@@ -5937,14 +5950,14 @@ void gen_sbig(int ix, int iy, int dx, int dy)
   jy  = jy + dy;
   FL_dark =
     obj = fl_add_button(FL_NORMAL_BUTTON, jx - 10, jy, dx + 10, dy, "Get Dark");
-  fl_set_object_callback(obj, sbig_cb,  1112);
+  fl_set_object_callback(obj, sbig_cb, 1112);
   fl_set_object_color(obj, FL_BUTTON_COL1, BUSY_COL);
   fl_set_object_lsize(obj, FL_MEDIUM_SIZE);
   fl_set_object_lstyle(obj, FL_FIXEDBOLD_STYLE);
 
   jy  = jy + dy;
   obj = fl_add_button(FL_NORMAL_BUTTON, jx - 10, jy, dx + 10, dy, "Get NoShut");
-  fl_set_object_callback(obj, sbig_cb,  1113);
+  fl_set_object_callback(obj, sbig_cb, 1113);
   fl_set_object_color(obj, FL_BUTTON_COL1, BUSY_COL);
   fl_set_object_lsize(obj, FL_MEDIUM_SIZE);
   fl_set_object_lstyle(obj, FL_FIXEDBOLD_STYLE);
@@ -6072,7 +6085,7 @@ short PictureST7(double exposureInSec, unsigned short *pict, int x0, int y0, int
     }
     isleep = 0;
 
-    sprintf(lstr, "SBIG start exposure %d", sePrm.exposureTime);
+    sprintf(lstr, "SBIG start exposure %ld", sePrm.exposureTime);
     put_logfile(LOG_SBG, 0, lstr);
     if (!(st7Error = SBIGUnivDrvCommand(CC_START_EXPOSURE, &sePrm, NULL))) {
       g_sbig_scrol += g_sbig_dscr * 0.1;
@@ -6080,14 +6093,14 @@ short PictureST7(double exposureInSec, unsigned short *pict, int x0, int y0, int
       if      (shutter == SC_LEAVE_SHUTTER) sprintf(tmp_imgtyp, "NOSHUTTTER");
       else if (shutter == SC_CLOSE_SHUTTER) sprintf(tmp_imgtyp, "DARKFRAME");
       else if (shutter == SC_OPEN_SHUTTER)  sprintf(tmp_imgtyp, "IMAGE");
-      else                                    sprintf(tmp_imgtyp, "UNDEF");
+      else                                  sprintf(tmp_imgtyp, "UNDEF");
 
       if      (g_filter == 1) sprintf(tmp_filter, "CLEAR  (1)");
       else if (g_filter == 2) sprintf(tmp_filter, "LUMIN  (2)");
       else if (g_filter == 3) sprintf(tmp_filter, "BLUE   (3)");
       else if (g_filter == 4) sprintf(tmp_filter, "GREEN  (4)");
       else if (g_filter == 5) sprintf(tmp_filter, "RED    (5)");
-      else                     sprintf(tmp_filter, "UNKNWN (%d)", g_filter);
+      else                    sprintf(tmp_filter, "UNKNWN (%ld)", g_filter);
 
       AMCtime(utime);
       strncpy(tmp_fulldat, g_datstr, 19);
@@ -6111,7 +6124,8 @@ short PictureST7(double exposureInSec, unsigned short *pict, int x0, int y0, int
         }
 
       usleep(40000);
-      do if (st7Error = SBIGUnivDrvCommand(CC_QUERY_COMMAND_STATUS, &qPrm, &qRes))
+      do {
+        if ((st7Error = SBIGUnivDrvCommand(CC_QUERY_COMMAND_STATUS, &qPrm, &qRes)))
           goto shutit;
         else {
           if (g_sbig_brk != 0) return -1;
@@ -6119,7 +6133,7 @@ short PictureST7(double exposureInSec, unsigned short *pict, int x0, int y0, int
           g_sbig_scrol += g_sbig_dscr * 0.1;
           isleep++;
         }
-      while ((qRes.status & 0x0003) != 0x0003);
+      } while ((qRes.status & 0x0003) != 0x0003);
 
     }
     else {
@@ -6137,14 +6151,14 @@ shutit:
       g_sbig_err = st7Error + 30000;
     }
     else {
-      sprintf(lstr, "SBIG  end  exposure %d", sePrm.exposureTime);
+      sprintf(lstr, "SBIG  end  exposure %ld", sePrm.exposureTime);
       put_logfile(LOG_SBG, 0, lstr);
     }
     g_sbig_scrol += g_sbig_dscr * 0.2;
 
   }
 
-  if (g_sbig_err > 0) return;
+  if (g_sbig_err > 0) return g_sbig_err;
 
   /*  Read the Picture  */
   if (mode >= S_PICT_TH) {  //read picture
@@ -6171,10 +6185,11 @@ shutit:
       st7Error = SBIGUnivDrvCommand(CC_START_READOUT, &srPrm, NULL);
     }
     if (st7Error == 0) {
-      for (row = y0; row < y0 + ywid; row++, pict += 1024)
-        if (st7Error = SBIGUnivDrvCommand(CC_READOUT_LINE, &rPrm, pict))
+      for (row = y0; row < y0 + ywid; row++, pict += 1024) {
+        if ((st7Error = SBIGUnivDrvCommand(CC_READOUT_LINE, &rPrm, pict)))
           goto endit;
         else if (row % 60 == 0) g_sbig_scrol += g_sbig_dscr * 0.2;
+      }
     }
     else {
       sprintf(lstr, "SBIG error %d; FAILED", st7Error);
@@ -6227,12 +6242,12 @@ short FilterST7(long i)
     return -1;
   }
   else {
-    sprintf(lstr, "Switch to Filter %d (was %d)", i, g_oldfilt);
+    sprintf(lstr, "Switch to Filter %ld (was %ld)", i, g_oldfilt);
     put_logfile(LOG_SBG, 0, lstr);
   }
 
   j = (i - g_oldfilt);
-  if (j == 0) return;
+  if (j == 0) return 0;
   if (j < 0) j += 5;
   g_sbig_dscr = 1. / (4 * j + 2);
   g_sbig_scrol = g_sbig_dscr;
@@ -6260,7 +6275,7 @@ short FilterST7(long i)
     ret = SBIGUnivDrvCommand(CC_QUERY_COMMAND_STATUS, &qPrm, &qRes);
   }
   while (qRes.status != 0);
-  sprintf(lstr, "Filter is %d (was %d)", i, g_oldfilt);
+  sprintf(lstr, "Filter is %ld (was %ld)", i, g_oldfilt);
   put_logfile(LOG_SBG, 0, lstr);
   return ret;
 }
@@ -6271,6 +6286,8 @@ void *StandbyST7_th(void *threadid)
 {
   st7Error = SetCoolingOff();
   g_sbig_th = S_STBY_TH * -1;
+
+  return NULL;
 }   /*  end of StandbyST7  */
 
 //--------------------------------------------------------------------
@@ -6308,6 +6325,7 @@ void *CloseST7_th(void *threadid)
 
   if (g_sbig_th != 0) g_sbig_th = S_CLOS_TH * -1;
 
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6330,6 +6348,8 @@ void *InitDST_th(void *threadid)
 
   sleep(15);
   g_dist_th = S_INIT_TH * -1;
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6341,129 +6361,130 @@ void *CloseDST_th(void *threadid)
   while (power[PWR_DIST].actual > 0 && pwrtry++ < 20) sleep(1);
 
   g_dist_th = S_CLOS_TH * -1;
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------
 
-void *InitST7_th( void *threadid)
-{   static GetDriverInfoParams   infoRqs; // GetInfo structs
-    static GetDriverInfoResults0 infoAns;
+void *InitST7_th(void *threadid)
+{
+  static GetDriverInfoParams   infoRqs; // GetInfo structs
+  static GetDriverInfoResults0 infoAns;
 
-    static OpenDeviceParams      openPrm; // link structs
-    static EstablishLinkParams   linkPrm;
-    static EstablishLinkResults  linkAns;
-    char lstr[LOGLEN];
+  static OpenDeviceParams      openPrm; // link structs
+  static EstablishLinkParams   linkPrm;
+  static EstablishLinkResults  linkAns;
+  char lstr[LOGLEN];
 
-    int pwrtry =0;
-    int j ;
-    g_sbig_scrol = 0.1 ;
-    g_sbig_stat=2 ;
+  int pwrtry = 0;
+  int j;
+  g_sbig_scrol = 0.1;
+  g_sbig_stat = 2;
 
-    //  switch on power if needed ....
-    if ( power[PWR_SBIG].actual < 1 ) push_pwr( NULL,  PWR_SBIG ) ;
+//  switch on power if needed ....
+  if (power[PWR_SBIG].actual < 1) push_pwr(NULL,  PWR_SBIG);
 
-    while ( power[PWR_SBIG].actual < 1 && pwrtry++ < 25 ) sleep(1) ;
+  while (power[PWR_SBIG].actual < 1 && pwrtry++ < 25) sleep(1);
 
-    if (pwrtry >= 24) {
-      sprintf(lstr,"--- error switching on SBIG power ....");
+  if (pwrtry >= 24) {
+    sprintf(lstr, "--- error switching on SBIG power ....");
+    put_logfile(LOG_ERR, 0, lstr);
+    // comment these two lines to continue even if no power feedback
+    //g_sbigon = -990;
+    //goto enditY;
+  }
+
+  g_sbig_scrol = 0.4;
+  sleep(1);
+
+  g_sbigon = 0;
+  g_sbig_scrol = 0.5;
+
+  st7Error = 0;
+
+  //  init structs
+  infoRqs.request = 0;
+  openPrm.deviceType = st7;
+  // xmccd doesn't init "linkPrm": let's xfingers..
+  g_sbig_scrol = 0.6;  usleep(20000);
+
+  st7Error = SBIGUnivDrvCommand(CC_OPEN_DRIVER, NULL, NULL);
+  if (st7Error != 0) {
+    sprintf(lstr, "SBIG error 1 driver %d ....\n", st7Error);
+    put_logfile( LOG_ERR , 0, lstr);
+    goto enditX ;
+  }
+  g_sbig_scrol = 0.65;  usleep(20000);
+
+  st7Error = SBIGUnivDrvCommand(CC_GET_DRIVER_INFO, &infoRqs, &infoAns);
+  if (st7Error != 0) {
+    sprintf(lstr, "SBIG error 2 driver info %d ....\n", st7Error);
+    put_logfile( LOG_ERR , 0, lstr);
+    goto enditX ;
+  }
+  g_sbig_scrol = 0.7;  usleep(20000); sleep(5);
+
+  st7Error = SBIGUnivDrvCommand(CC_OPEN_DEVICE, &openPrm, NULL);
+  if (st7Error != 0) {
+    sprintf(lstr, "SBIG error 3 open device %d ....\n", st7Error);
+    put_logfile( LOG_ERR , 0, lstr);
+    goto enditX;
+  }
+  g_sbig_scrol = 0.75;  usleep(20000);
+
+  st7Error = SBIGUnivDrvCommand(CC_ESTABLISH_LINK, &linkPrm, &linkAns);
+  if (st7Error != 0) {
+    sprintf(lstr, "SBIG error 4 open device %d ....\n", st7Error);
+    put_logfile( LOG_ERR , 0, lstr);
+    goto enditX;
+  }
+  g_sbig_scrol = 0.8;  usleep(20000);
+
+  st7Error = SetCoolingOn(g_sbig_temp);
+  if (st7Error != 0) {
+    sprintf(lstr, "SBIG error 5 set cool %d ....\n", st7Error);
+    put_logfile( LOG_ERR , 0, lstr);
+    goto enditX;
+  }
+  g_sbig_scrol = 0.85;  usleep(20000);
+
+
+  if (!myImage) myImage = malloc(st7width*st7height*sizeof(unsigned short));
+  g_sbig_scrol = 0.9;  usleep(20000);
+
+  if (st7Error == 0) {
+    sleep(1);
+    g_sbig_scrol = 0.0;
+    st7Error = FilterST7(1);
+    if (st7Error != 0) {
+      sprintf(lstr, "SBIG error 6 filter %d ....\n", st7Error);
       put_logfile( LOG_ERR , 0, lstr) ;
-      // comment these two lines to continue even if no power feedback
-      //g_sbigon = -990 ;
-      //goto enditY ;
-    }
-
-    g_sbig_scrol = 0.4 ;
-    sleep(1) ;
-
-    g_sbigon = 0 ;
-    g_sbig_scrol = 0.5 ;
-
-    st7Error = 0 ;
-
-    //  init structs
-    infoRqs.request = 0;
-    openPrm.deviceType = st7;
-    // xmccd doesn't init "linkPrm": let's xfingers..
-    g_sbig_scrol = 0.6 ;  usleep(20000) ;
-
-    st7Error=SBIGUnivDrvCommand(CC_OPEN_DRIVER, NULL, NULL) ;
-    if (st7Error != 0 ) {
-       sprintf(lstr,"SBIG error 1 driver %d ....\n",st7Error);
-       put_logfile( LOG_ERR , 0, lstr) ;
-       goto enditX ;
-    }
-    g_sbig_scrol = 0.65;  usleep(20000) ;
-
-    st7Error=SBIGUnivDrvCommand(CC_GET_DRIVER_INFO, &infoRqs, &infoAns) ;
-    if (st7Error != 0 ) {
-       sprintf(lstr,"SBIG error 2 driver info %d ....\n",st7Error);
-       put_logfile( LOG_ERR , 0, lstr) ;
-       goto enditX ;
-    }
-    g_sbig_scrol = 0.7 ;  usleep(20000) ; sleep(5) ;
-
-    st7Error=SBIGUnivDrvCommand(CC_OPEN_DEVICE, &openPrm, NULL) ;
-    if (st7Error != 0 ) {
-       sprintf(lstr,"SBIG error 3 open device %d ....\n",st7Error);
-       put_logfile( LOG_ERR , 0, lstr) ;
-       goto enditX ;
-    }
-    g_sbig_scrol = 0.75;  usleep(20000) ;
-
-    st7Error=SBIGUnivDrvCommand(CC_ESTABLISH_LINK, &linkPrm, &linkAns) ;
-    if (st7Error != 0 ) {
-       sprintf(lstr,"SBIG error 4 open device %d ....\n",st7Error);
-       put_logfile( LOG_ERR , 0, lstr) ;
-       goto enditX ;
-    }
-    g_sbig_scrol = 0.8 ;  usleep(20000) ;
-
-    st7Error=SetCoolingOn( g_sbig_temp );
-    if (st7Error != 0 ) {
-       sprintf(lstr,"SBIG error 5 set cool %d ....\n",st7Error);
-       put_logfile( LOG_ERR , 0, lstr) ;
-       goto enditX ;
-    }
-    g_sbig_scrol = 0.85;  usleep(20000) ;
-
-
-    if (!myImage) myImage = malloc(st7width*st7height*sizeof(unsigned short));
-    g_sbig_scrol = 0.9 ;  usleep(20000) ;
-
-    if (st7Error == 0) {
-       sleep(1);
-       g_sbig_scrol = 0.0 ;
-       st7Error = FilterST7( 1 ) ;
-       if (st7Error != 0 ) {
-          sprintf(lstr,"SBIG error 6 filter %d ....\n",st7Error);
-          put_logfile( LOG_ERR , 0, lstr) ;
-          goto enditX ;
-       }
-    }
+      goto enditX ;
+     }
+  }
 
 enditX:
-    if (st7Error == 0) {
-       g_sbigon = 1 ;
-       g_sbig_stat=3 ;
-       g_pict_filt = g_filter  = 1 ;
-       for ( j=2; j<6; j++) fl_set_button( FLfilt[j], 0);
-                            fl_set_button( FLfilt[1], 1);
-    } else {
-       sprintf(lstr,"SBIG on failed %d",st7Error);
-       put_logfile( LOG_ERR , 0, lstr) ;
-       g_sbigon = -999 ;
-       g_sbig_stat=9 ;
-       g_pict_filt=9 ;
-    }
+  if (st7Error == 0) {
+    g_sbigon = 1;
+    g_sbig_stat = 3;
+    g_pict_filt = g_filter = 1;
+    for (j = 2; j < 6; j++) fl_set_button(FLfilt[j], 0);
+    fl_set_button(FLfilt[1], 1);
+  } else {
+    sprintf(lstr, "SBIG on failed %d", st7Error);
+    put_logfile(LOG_ERR, 0, lstr);
+    g_sbigon = -999;
+    g_sbig_stat = 9;
+    g_pict_filt = 9;
+  }
 enditY:
+  g_sbig_th = S_INIT_TH * -1;
 
-    g_sbig_th = S_INIT_TH * -1 ;
-
-
+  return NULL;
 }
 
 //--------------------------------------------------------------------
-
 
 void *TakePict_th(void *threadid)
 {
@@ -6488,11 +6509,11 @@ void *TakePict_th(void *threadid)
   if (g_sb_mode == S_EXPO_TH) time = g_expos + 1.;
   if (g_sb_mode == S_PICT_TH) time = g_expos + 1. + 3500. / ywid;
   g_sbig_dscr  = 1. / time;
-  sprintf(lstr, "SBIG Pict %d %d %f", g_sb_shutt, g_sb_mode, g_expos);
+  sprintf(lstr, "SBIG Pict %ld %ld %f", g_sb_shutt, g_sb_mode, g_expos);
   put_logfile(LOG_SBG, 0, lstr);
 
   g_sbig_th = g_sb_mode;      //flag thread as active
-  ret = PictureST7(g_expos, &img_buffer, x0, y0, xwid, ywid, shutt, mode);
+  ret = PictureST7(g_expos, (short unsigned int *) &img_buffer, x0, y0, xwid, ywid, shutt, mode);
 
   if (g_sbig_cc > 0) {       //was an CC picture mode -> save image
     save_cb(NULL, -11);
@@ -6501,6 +6522,8 @@ void *TakePict_th(void *threadid)
   g_sbig_stat = 3;
 
   g_sbig_th = g_sb_mode * -1; //flag thread as finished
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6515,6 +6538,8 @@ void *Filter_th(void *threadid)
   g_oldfilt = g_filter;
   g_sbig_th = S_FILT_TH * -1; //flag thread as finished
   g_sbig_stat = 3;
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6538,7 +6563,7 @@ int make_socket (uint16_t port)
   name.sin_family = AF_INET;
   name.sin_port = htons (port);
   name.sin_addr.s_addr = htonl (INADDR_ANY);
-  if (ibind = bind (sock, (struct sockaddr *) &name, sizeof (name)) >= 0)
+  if ((ibind = bind (sock, (struct sockaddr *) &name, sizeof (name))) >= 0)
     return sock;
 
   printf("problem with bind; %d, %d\n", ibind, EXIT_FAILURE);
@@ -6561,7 +6586,7 @@ int read_from_CC(int filedes)
   long   ccst2[31];
   float  ccM2zd, ccM2az, xZen, xAzi, xFoc, xX, xY;
   long   utime[5];
-  int    YY, MM, ifID ;
+  int    YY, MM, ifID;
 
   //clear the buffer first [there could be a long backlog because the CC-FIFOs are queueing]
   if (g_cc_start == 0) {
@@ -6597,7 +6622,7 @@ int read_from_CC(int filedes)
         put_logfile(LOG_CC_, -2, lstr);     //write reports only to log-file (maybe even not there?)
 
 //                                         0  y  m  d  h  m  s ms  w  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5  6  7  8
-        n = sscanf(g_ccbuf, "CC-REPORT M0 %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %f %f %f %f %f %f %f %f %f %f %s %s %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %f %f %s %s %d %s %d %s %d %d %s",
+        n = sscanf(g_ccbuf, "CC-REPORT M0 %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %f %f %f %f %f %f %f %f %f %f %s %s %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %f %f %s %s %ld %s %ld %s %ld %ld %s",
                    &ccst0, &ccyr, &ccmon, &ccday, &cchour, &ccmin, &ccsec, &ccmsec,        //CCstate, year, month, day, hour, minute, sec, ms
                    &ccweather,                                                             //weather state (wind+humidity, 0=error, 4=ok, 7=warning, 8=alarm)
                    &ccst1[ 0], &ccst1[ 1], &ccst1[ 2], &ccst1[ 3],                         //DAQ1 state, DominoCalibration1, drive1, stg1 state
@@ -6606,17 +6631,17 @@ int read_from_CC(int filedes)
                    &ccst1[15], &ccst1[16], &ccst1[17],                                     //Lidar state, aux state, GRB state
                    &ccM1zd, &ccM1az, &ccRQzd, &ccRQaz,                                     //current M1 Zd [deg], current M1 Az [deg], req DEC [deg], req RA [deg]
                    &ccT, &ccP, &ccV, &ccH, &ccUPS, &ccGPS,                                 //mean T, pressure, wind speed, mean hum, ups charge, Rub-GPS
-                   &ccsched, &ccsrc, &cccat,                                               //SCHEDULE sourcename, category
+                   ccsched, ccsrc, &cccat,                                                 //SCHEDULE sourcename, category
                    &ccst2[ 0], &ccst2[ 1], &ccst2[ 2], &ccst2[ 3],                         //DAQ2 state, DominoCalibration2, drive2, stg2 state
                    &ccst2[ 4], &ccst2[ 5], &ccst2[ 6], &ccst2[ 7], &ccst2[ 8],             //CaCo2 state, CaCo2 LID, CaCo2 sentinel, CaCo2 LV, CaCo2
                    &ccst2[ 9], &ccst2[10], &ccst2[11], &ccst2[12], &ccst2[13], &ccst2[14], //AMC2 state, L2T2, pulsar2, receiver2, DT2, calib2
                    &ccst2[15],                                                             //readout cooling
                    &ccM2zd, &ccM2az,                                                       //current M2 Zd [deg], current M2 Az [deg]
-                   &ccLight,                                                               //LightConditions (“Moon”, “No Moon”, “Twilight”, “Day”)
-                   &ccGRB, &ccst2[16],                                                     //GRB dataking state (0=no GRB, 1=GRB alert received; processing it/taking
-                   &ccGPSERROR, &ccst2[17],                                                //GPS_ERROR %01d (0=no error, 1=error)
-                   &ccCT, &ccst2[18], &ccst2[19],                                          //CT_ACTIVE M1_active, M2_active
-                   &ccOVER                                                                 //OVER
+                   ccLight,                                                                //LightConditions (“Moon”, “No Moon”, “Twilight”, “Day”)
+                   ccGRB, &ccst2[16],                                                      //GRB dataking state (0=no GRB, 1=GRB alert received; processing it/taking
+                   ccGPSERROR, &ccst2[17],                                                 //GPS_ERROR %01d (0=no error, 1=error)
+                   ccCT, &ccst2[18], &ccst2[19],                                           //CT_ACTIVE M1_active, M2_active
+                   ccOVER                                                                  //OVER
                   );
 
         if (n < 50) {
@@ -6624,7 +6649,7 @@ int read_from_CC(int filedes)
             g_cc_errcnt = 0;
           if (g_cc_errcnt == 0) {
             put_logfile(LOG_ERR, +1, lstr); //something wrong==> show report on screen
-            sprintf(lstr, "Illegal CC-REPORT, n=%d", n);
+            sprintf(lstr, "Illegal CC-REPORT, n=%ld", n);
             put_logfile(LOG_ERR, 0, lstr);  //and give error message
           }
         }
@@ -6654,11 +6679,11 @@ int read_from_CC(int filedes)
         g_cc_timc = utime[0];
         g_cc_sec  = utime[2];
         strncpy(lstr, g_ccbuf, LOGLEN);
-        put_logfile(LOG_CC_, 0, lstr);      //these strings also written to screen ....
+        put_logfile(LOG_CC_, 0, lstr);     //these strings also written to screen ....
         // sscanf command ....
         if (strncmp(g_ccbuf, "SBIG", 4) == 0) { //we have an SBIG command
           g_cc_cmd = 0;
-          n = sscanf(g_ccbuf, "SBIG %s %d %s", &xCmd, &xT, &xName);
+          n = sscanf(g_ccbuf, "SBIG %s %ld %s", xCmd, &xT, xName);
           if (n > 0) {
             if (strncmp(xCmd, "ON", 2) == 0) {
               g_cc_cmd = 201;
@@ -6680,7 +6705,7 @@ int read_from_CC(int filedes)
               if (n > 1) g_cc_expos = xT;
               else       g_cc_expos = 50;
               xName[30] = '\0'; // just in case it is very long ....
-              snprintf(g_cc_name, LOGLEN, "%s/%04d/%02d/M2_TPT_%06d_%06d_F%d_X%05d_Z%+03d_A%+04d_%s",
+              snprintf(g_cc_name, LOGLEN, "%s/%04d/%02d/M2_TPT_%06ld_%06ld_F%d_X%05d_Z%+03d_A%+04d_%s",
                        sbig_path, YY, MM, utime[1], utime[0], g_pict_filt, (int)g_cc_expos, global_zenith, global_azimut, xName);
 
             }
@@ -6690,7 +6715,7 @@ int read_from_CC(int filedes)
               if (n > 1) g_cc_expos = xT;
               else       g_cc_expos = 50;
               xName[30] = '\0'; // just in case it is very long ....
-              snprintf(g_cc_name, LOGLEN, "%s/%04d/%02d/M2_TPT_%06d_%06d_F%d_X%05d_Z%+03d_A%+04d_%s",
+              snprintf(g_cc_name, LOGLEN, "%s/%04d/%02d/M2_TPT_%06ld_%06ld_F%d_X%05d_Z%+03d_A%+04d_%s",
                        sbig_path, YY, MM, utime[1], utime[0], 0, (int)g_cc_expos, global_zenith, global_azimut, xName);
             }
           }
@@ -6740,16 +6765,16 @@ int read_from_CC(int filedes)
         }
         else if (strncmp(g_ccbuf, "TPICT", 5) == 0) {
           g_cc_cmd = 111; //TPICT
-          n = sscanf(g_ccbuf, "TPICT %s", &xName);
+          n = sscanf(g_ccbuf, "TPICT %s", xName);
           xName[30] = '\0'; // just in case it is very long ....
-          snprintf(g_cc_name, LOGLEN, "%s/%04d/%02d/M2_TPT_%06d_%06d_F%d_X%05d_Z%+03d_A%+04d_%s",
+          snprintf(g_cc_name, LOGLEN, "%s/%04d/%02d/M2_TPT_%06ld_%06ld_F%d_X%05d_Z%+03d_A%+04d_%s",
                    sbig_path, YY, MM, utime[1], utime[0], g_pict_filt, g_pict_expos, global_zenith, global_azimut, xName);
         }
         else {
           g_cc_cmd =  0; //nothing to do
         }
 
-        sprintf(lstr, "CC-execute command %d", g_cc_cmd);
+        sprintf(lstr, "CC-execute command %ld", g_cc_cmd);
         put_logfile(LOG_INF, 0, lstr);
 
       }
@@ -6782,17 +6807,17 @@ void *FromCC_th(void *threadid)
   /* Create the socket and set it up to accept connections. */
   sock = make_socket (PORT);
   if (sock <= 0) {
-    sprintf(lstr, "Problem with Socket %d, sock");
+    sprintf(lstr, "Problem with Socket %d", sock);
     put_logfile(LOG_ERR, 0, lstr);
     g_ccrec = -11;
-    return;
+    return NULL;
   }
 
-  if (ilist = listen (sock, 1) < 0) {
-    sprintf(lstr, "Problem with Listen %d, ilist");
+  if ((ilist = listen (sock, 1)) < 0) {
+    sprintf(lstr, "Problem with Listen %d", ilist);
     put_logfile(LOG_ERR, 0, lstr);
     g_ccrec = -12;
-    return;
+    return NULL;
   }
 
   /* Initialize the set of active sockets. */
@@ -6841,7 +6866,7 @@ void *FromCC_th(void *threadid)
           }
           else {
             /* Data arriving on an already-connected socket. */
-            if (iret = read_from_CC (i) < 0) {
+            if ((iret = read_from_CC (i)) < 0) {
               sprintf(lstr, "close the connection; %d, %d", iret, i);
               put_logfile(LOG_CC_, 0, lstr);
               close (i);
@@ -6855,7 +6880,7 @@ void *FromCC_th(void *threadid)
   close(sock);
   sprintf(lstr, "close FromCC thread");
   put_logfile(LOG_CC_, 0, lstr);
-  return;
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -6911,7 +6936,7 @@ void *ToCC_th(void *threadid)
       init = connect (g_cc_tosock, (struct sockaddr *) &servername, sizeof (servername));
       errv = errno;
       if (init < 0) {           //flag as error
-        if (g_ccsnd < 0) return;
+        if (g_ccsnd < 0) return NULL;
         if (global_mode >= MODE_MANU) fl_set_object_color(FLout_info, 404, 404);
         else                            fl_set_object_color(FLout_info, FL_RED, FL_RED);
 
@@ -6946,7 +6971,7 @@ void *ToCC_th(void *threadid)
     l_AMCstat = g_AMCstat;
     if (global_mode >= MODE_MANU) l_AMCstat = 0;     //report error in case of manual mode
 
-    sprintf(report, "AMC-REPORT M2 %02d %04d %02d %02d %02d %02d %02d %03d %02d %04d %02d %02d %02d %02d %02d %03d PANELS %03d %03d %03d %03d ADJUST %05d %05d %05d %05d AUTOAD %05d %05d %05d %05d CCD %1d %04d %1d %03d OVER\n",
+    sprintf(report, "AMC-REPORT M2 %02d %04d %02d %02d %02d %02d %02d %03d %02d %04d %02d %02d %02d %02d %02d %03d PANELS %03d %03d %03d %03d ADJUST %05d %05d %05d %05d AUTOAD %05d %05d %05d %05d CCD %1d %04d %1ld %03d OVER\n",
             l_AMCstat,  yy,  mon,  dd,  hh,  mm,  ss,  ms,
             g_COMstat, g_yy, g_mon, g_dd, g_hh, g_mm, g_ss, g_ms,
             g_all, g_err + g_com, g_mov, g_nin,
@@ -6963,6 +6988,7 @@ void *ToCC_th(void *threadid)
 //          g_zd1, g_az1, g_fc1, g_tim1,
 //          g_sbig_stat, (int)g_sbig_temp, g_filter, g_pictcnt,
 //          g_ifIDuse);
+//
 
     sprintf(lstr, "%3d|%3d|%3d|%3d", g_ok, g_err + g_com, g_mov, g_nin);
     fl_set_object_label(FLout_info, lstr); //and put info there ...
@@ -6994,6 +7020,8 @@ void *ToCC_th(void *threadid)
   }
   sprintf(lstr, "close ToCC thread");
   put_logfile(LOG_CC_, 0, lstr);
+
+  return NULL;
 }
 
 //--------------------------------------------------------------------
@@ -7022,7 +7050,7 @@ int main(int argc, char *argv[])
 //initialize AMC
   PWR_read(power);
   AMC_read(panel);
-  
+
   printf("----------------------------------call AMC_init\n");
   if (AMC_init(panel) != 0) {
     printf("AMC Init failed\n");
