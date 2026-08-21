@@ -68,7 +68,8 @@ int ready_response(int ip, int nbyte) {
   long t1,t2,t12,s1,s2,s12,dt12,ds12;
 
   unsigned int icon, acon[61];
-  unsigned char st1, st2, debug[2560];
+  unsigned char st1, st2;
+  char debug[2560];
 //$$
     int j, i, k, *res, retcod, idebug, i2 ;
     unsigned char lbuf[256];
@@ -77,19 +78,19 @@ int ready_response(int ip, int nbyte) {
     unsigned char byte[4];
     int             res1,res2,res3, iloop ;              //AB
 
-  sprintf(&debug[0],"enter get_response1 %d\n\0",globalchain );
+  sprintf(&debug[0],"enter get_response1 %d\n",globalchain );
   log_write(fdisk, debug, &i2);
 
     s12=0;
     t12=0;
-    word=&byte;
+    word=(int*)&byte;
     retcod=0;
     res=res0;
     *res=0;
     j=gettimeofday( tv, tz);
     t1=atv.tv_usec;
     s1=atv.tv_sec-1100100000;
-  sprintf(&debug[0],"get_response1: s1=%d, t1=%d\n",s1,t1);
+  sprintf(&debug[0],"get_response1: s1=%ld, t1=%ld\n",s1,t1);
   log_write(fdisk, debug, &i2);
 
     res1 = 0 ;                                           //AB
@@ -114,7 +115,7 @@ morezer:
           iloop=0;
           res1 += res3 ;                                 //AB
        }
-       if ( res1 < resin) 
+       if ( res1 < resin) {
         if( iloop<5 )                                    //AB
         {
          usleep(10000) ;                                  //AB
@@ -122,6 +123,7 @@ morezer:
         } else {
          retcod=-2;
         }
+       }
 
 endlisten:
 
@@ -132,14 +134,17 @@ endlisten:
    sprintf(&debug[idebug],"%2.2x ", lbuf[i] );
    idebug += 3;                       
   }
-  sprintf(&debug[idebug],"\n\0" );
+  sprintf(&debug[idebug],"\n" );
   log_write(fdisk, debug, &i2);
 
     *res = res1 ;                                        //AB
 
     printf("globalchain=%d; Bytes received %d, exspected %d \n",globalchain , *res, resin);
     lbuf[*res]=0;
-    for(j=0;j<*res;j++) {globallbuf[j]=lbuf[j]; printf("%2.2x ",lbuf[ j]);}
+    for(j=0;j<*res;j++) {
+      globallbuf[j]=lbuf[j];
+      printf("%2.2x ",lbuf[ j]);
+    }
     j=gettimeofday( tv, tz);
     t2=atv.tv_usec;
     s2=atv.tv_sec-1100100000;
@@ -148,10 +153,10 @@ endlisten:
      --s2;
     }
     if(*res <= 0 ) {
-     printf("NO  2. echo, res= %d: at %d sec %d usec \n", *res,s2-s1,t2-t1 );
+     printf("NO  2. echo, res= %d: at %ld sec %ld usec \n", *res,s2-s1,t2-t1 );
      return(-1+retcod);
     } 
-    printf("  2. echo: %d: at %d sec %d usec \n", *res,s2-s1,t2-t1 );
+    printf("  2. echo: %d: at %ld sec %ld usec \n", *res,s2-s1,t2-t1 );
     ds12=s2-s1;   //-s12;
     dt12=t2-t1;   //-t12;
     if(dt12<0) {
@@ -165,7 +170,7 @@ endlisten:
     ++acon[icon];
 
     if((ds12 > 1) || (dt12 > 520000) ) {
-     printf("connection delay %d sec %d usec \n",ds12,dt12);
+     printf("connection delay %ld sec %ld usec \n",ds12,dt12);
     }
     if(lbuf[1] == 0x15 ) { 
      printf("NAK %3x %3x \n", lbuf[7],lbuf[8]);
@@ -385,7 +390,7 @@ printf("get_response:just read %d\n",nread);
 //first deal with frame length
   //nothing received
     if(*res <= 0 ) {
-     printf("NO response, res= %d: at %d sec %d usec \n", *res, atv.tv_sec, atv.tv_usec);
+     printf("NO response, res= %d: at %ld sec %ld usec \n", *res, atv.tv_sec, atv.tv_usec);
      retcod=-4;
      if(i_rtry < n_rtry ) {
       *res = 0;
@@ -501,7 +506,7 @@ lab_byte0:
     j=gettimeofday( tv, tz);
     mainusec=atv.tv_usec;
     mainsec =atv.tv_sec ;
-    printf("get_respose: omega, %d %d\n",mainusec0,mainusec);
+    printf("get_respose: omega, %ld %ld\n",mainusec0,mainusec);
     mainusec=(mainusec-mainusec0)/1000.+1000.*(mainsec-mainsec0);
 
 omega: 
@@ -595,17 +600,17 @@ int send_command(int ip, unsigned char *comd, AMCpanel* ptr ) {
   int        res,nofbyte,nread,j,k, res0,res1,res2,res3,iloop,ii,idebug,i2,it;
   unsigned char rescmd[256], newcmd[1200], *comd0;
   ushort   crcword;
-  unsigned char debug[2560];
+  char debug[2560];
   int  *word;
   unsigned char byte[4];
 
-  word=&byte;
+  word=(int*)&byte;
   byte[0]=(*(comd+2));
   byte[1]=(*(comd+3));
   byte[2]=0;
   byte[3]=0;
   for(it=0;it<3;it++){
-   if( (*word) == (*ptr).addr  ) goto it_break;
+   if( word == (*ptr).addr  ) goto it_break;
   }
  it=2;
 it_break: ;
@@ -628,7 +633,7 @@ flushagain:
     sprintf(&debug[idebug],"%2.2x ", newcmd[i] );
     idebug += 3;
    }
-   sprintf(&debug[idebug],"\n\0" );
+   sprintf(&debug[idebug],"\n" );
    log_write(fdisk, debug, &i2);
 //---
    if(res1>1000) goto flushagain;
@@ -647,7 +652,7 @@ for(i=0;i<nofbyte;i++) printf("%2.2x ", comd[i] ); printf("\n");
    sprintf(&debug[idebug],"%2.2x ", comd[i] );
    idebug += 3;
   }
-  sprintf(&debug[idebug],"\n\0" );
+  sprintf(&debug[idebug],"\n" );
   log_write(fdisk, debug, &i2);
 
 
@@ -1349,7 +1354,7 @@ nothing:
 
 
 int resend_last(int iip, AMCpanel* ptr, int it, int resin ) {
-    int resp, retcod, k;
+    int resp, retcod = 0, k;
     int n_byte_resp, ib, ip, pf;
     unsigned char cmdframe[20];
     unsigned char lbufrsp[256]; 
@@ -1920,7 +1925,7 @@ nothing:
 int laser_on_parallel(int iip, AMCpanel* ptr, int* subcase ) {
     static unsigned char cmdframe[nport][20];
     static char chsend[nport][20], chrecv[nport][60], err_mess[nport][100];
-    static r_retry[nport], s_retry[nport];
+    static int r_retry[nport], s_retry[nport];
     static long mainusec0[nport], mainsec0[nport];
     static int  res[nport],nofbyte,nread;
     int n_byte_resp, ib, it, ip, pf;
@@ -1948,7 +1953,7 @@ resend:
      gettimeofday( tv, tz);
      mainusec0[iip]=atv.tv_usec;
      mainsec0[iip]=atv.tv_sec ;
-     printf("laser_on_parallel (re)send %d %d\n",s_retry[iip],atv.tv_usec);
+     printf("laser_on_parallel (re)send %d %ld\n",s_retry[iip],atv.tv_usec);
 
 
      nofbyte=9+cmdframe[iip][6];
@@ -1957,7 +1962,8 @@ resend:
 printf("crucial:laspar:sending %d bytes to ip=%d\n",nofbyte,ip);
      res[iip] = write(fd[ip], cmdframe[iip], nofbyte);
      s_retry[iip]+=1;
-     for(k=0;k<11;k++) printf("%2.2x ", cmdframe[iip][k]); printf("\n" );
+     for(k=0;k<11;k++) printf("%2.2x ", cmdframe[iip][k]);
+     printf("\n" );
      *subcase=2;
      return(0);
     }
@@ -1974,7 +1980,8 @@ wait_again:
       }
       nread=read(fd[ip], newcmd, res[iip]);
      }
-     for(k=0;k<11;k++) printf("%2.2x ", newcmd[k]); printf("\n" );
+     for(k=0;k<11;k++) printf("%2.2x ", newcmd[k]);
+     printf("\n" );
      *subcase=3;
      return(0);
     }    
@@ -2054,7 +2061,7 @@ resend:
     gettimeofday( tv, tz);
     mainusec0=atv.tv_usec;
     mainsec0=atv.tv_sec ;
-    printf("laser_on (re)send at %d usec\n",atv.tv_usec);
+    printf("laser_on (re)send at %ld usec\n",atv.tv_usec);
     send_command( ip, cmdframe, ptr );
     s_retry+=1;
     ausleep(n5000);
@@ -2063,14 +2070,14 @@ reread:
     mainusec=atv.tv_usec;
     mainsec=atv.tv_sec ;
     mainusec=(mainusec-mainusec0)/1000.+1000.*(mainsec-mainsec0);
-    printf("laser_on (re)read %d %d\n",mainusec, atv.tv_usec);
+    printf("laser_on (re)read %ld %ld\n",mainusec, atv.tv_usec);
     status1[iip]=0;  status2[iip]=0;
     retcod=get_response(cmdframe, ip, n_byte_resp, lbufrsp, &resp,
                   &status1[iip], &status2[iip] );
     gettimeofday( tv, tz);
     mainusec=atv.tv_usec;
     mainsec=atv.tv_sec ;
-    printf("laser_on get_resp retcod %d, %d\n",retcod,mainusec);
+    printf("laser_on get_resp retcod %d, %ld\n",retcod,mainusec);
     r_retry+=1;
     if(retcod < 0 ) {
      chrecv[0]=lbufrsp[0];

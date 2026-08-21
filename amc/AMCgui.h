@@ -1,5 +1,5 @@
 typedef struct  {                //contains info about panel button
-   int status   ;                                                                    
+   int status   ;
    int select   ;
    int laser    ;
    int col1     ;

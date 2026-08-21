@@ -1,8 +1,8 @@
 // frame structures for sending
 //send 1 byte and 1 word: set lower/upper endswitch number (b) and value (w)
 typedef struct {                  //contains the structure of a frame (comminucation)
-   unsigned char header[2] ;       //header bytes: send:fb 01
-   unsigned short dst_addr ;       //destination address
+   unsigned char header[2] ;      //header bytes: send:fb 01
+   unsigned short dst_addr ;      //destination address
    unsigned short src_addr ;      //source address
    unsigned char counter ;        //number of bytes to follow
    unsigned char function ;       //function to be executed
@@ -16,11 +16,11 @@ AMCframe_snd_bw ;
 //send 1 word: write working current (w)
 typedef struct {                  //contains the structure of a frame (comminucation)
    unsigned char header[2] ;      //header bytes: send:fb 01
-   unsigned short dst_addr ;        //destination address
-   unsigned short src_addr ;        //source address
+   unsigned short dst_addr ;      //destination address
+   unsigned short src_addr ;      //source address
    unsigned char counter ;        //number of bytes to follow
    unsigned char function ;       //function to be executed
-   unsigned short word0 ;           //word 0
+   unsigned short word0 ;         //word 0
    unsigned char crc[2] ;         //CRC
 }                                 //
 AMCframe_snd_w ;
@@ -29,8 +29,8 @@ AMCframe_snd_w ;
 //send no data
 typedef struct {                  //contains the structure of a frame (comminucation)
    unsigned char header[2] ;      //header bytes: send:fb 01
-   unsigned short dst_addr ;        //destination address
-   unsigned short src_addr ;        //source address
+   unsigned short dst_addr ;      //destination address
+   unsigned short src_addr ;      //source address
    unsigned char counter ;        //number of bytes to follow
    unsigned char function ;       //function to be executed
    unsigned char crc[2] ;         //CRC

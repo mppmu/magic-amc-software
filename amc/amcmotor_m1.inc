@@ -147,8 +147,8 @@ endlisten:
 //  printf("globalchain=%d; Bytes received %d, exspected %d \n",globalchain , *res, resin);
     lbuf[*res]=0;
     for(j=0;j<*res;j++) {
-     globallbuf[j]=lbuf[j];
-//   printf("%2.2x ",lbuf[ j]);
+      globallbuf[j]=lbuf[j];
+//    printf("%2.2x ",lbuf[ j]);
     }
     j=gettimeofday( tv, tz);
     t2=atv.tv_usec;
@@ -158,10 +158,10 @@ endlisten:
      --s2;
     }
     if(*res <= 0 ) {
-//   printf("NO  2. echo, res= %d: at %d sec %d usec \n", *res,s2-s1,t2-t1 );
+//   printf("NO  2. echo, res= %d: at %ld sec %ld usec \n", *res,s2-s1,t2-t1 );
      return(-1+retcod);
     } 
-//  printf("  2. echo: %d: at %d sec %d usec \n", *res,s2-s1,t2-t1 );
+//  printf("  2. echo: %d: at %ld sec %ld usec \n", *res,s2-s1,t2-t1 );
     ds12=s2-s1;   //-s12;
     dt12=t2-t1;   //-t12;
     if(dt12<0) {
@@ -423,7 +423,7 @@ if(res1>resin) {
       for(k=2;k<lbuf[5]+6;k++) crcword = CRC16(lbuf[k], crcword);
       (*word)=crcword;
       if( (byte[0] != lbuf[lbuf[6]+7]) || (byte[1] != lbuf[lbuf[6]+8]) ) {
-       printf("1my CRC: %2.2x %2.2x; CRC received: %2.2x %2.2x \n", byte[0],byte[1],
+       printf("my CRC: %2.2x %2.2x; CRC received: %2.2x %2.2x \n", byte[0],byte[1],
                  lbuf[lbuf[6]+7],lbuf[lbuf[6]+8]);
        printf("ACK   response CRC16 wrong \n");
        *res=-2;
