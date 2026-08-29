@@ -4,7 +4,7 @@
 # Auth: M. Fras, Electronics Division, MPI for Physics, Munich
 # Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
 # Date: 03 Aug 2026
-# Rev.: 06 Aug 2026
+# Rev.: 29 Aug 2026
 #
 # Python script to switch on/off parts of the MAGIC I AMC using a Lineeye LA-5R
 # device.
@@ -18,7 +18,7 @@
 #
 # The function "control_la5r_channel" was partially generated with Google AI
 # using this prompt:
-# "Write a python software to switch on and off individual channels of the
+# "Write a Python software to switch on and off individual channels of the
 #  Lineeye LA-5R device over the network."
 #
 
@@ -30,13 +30,71 @@ import time
 
 
 
-# Replace this with the actual IP of your Lineeye device.
-LINEEYE_IP = "192.168.0.46"
-#LINEEYE_IP = "192.168.0.130"
-#LINEEYE_IP = "161.72.130.115"
+# Lineeye LA-5R device network settings.
+LINEEYE_IP = "161.72.130.115"
+LINEEYE_PORT = 10003
 
 # Set verbosity level.
 verbosity = 1
+
+
+
+# Get the status of the relays of the Lineeye LA-5R device.
+def status_la5r_channels(ip_address, port=10003):
+    """
+    Get the status of all 5 relay channels of the Lineye LA-5R device.
+    """
+
+    # Command to query the status of the relays.
+    cmd_header = 0xE0
+
+    # Assemble the packet as a bytearray.
+    payload = bytes([cmd_header])
+
+    try:
+        # Establish TCP connection.
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(3.0)   # Timeout protection for network delays.
+            s.connect((ip_address, port))
+
+            # Send the command to the Lineeye LA-5R device.
+            if verbosity >= 3:
+                print("Sending command '0x{0:s}' to Lineeye LA-5R: Channel {1:d} -> {2:s}.".format(payload.hex().upper(), channel, 'ON' if turn_on else 'OFF'))
+            s.sendall(payload)
+
+            # The Lineeye LA-5R device usually responds with a confirmation (echo of the status).
+            response = s.recv(1024)
+            if response:
+                if verbosity >= 3:
+                    print("Response from Lineeye LA-5R (hex): 0x{0:s}".format(response.hex().upper()))
+            # Check for errors in response from Lineeye LA-5R device.
+            if not response:
+                print("Error: No response from the Lineeye LA-5R device!")
+                sys.exit(12)
+            else:
+                if len(response) != 2:
+                    print("Error: The response from the Lineeye LA-5R device should have 1 bytes, but it has {0:d}!".format(len(response)))
+                    sys.exit(13)
+                elif response[0] != cmd_header:
+                    print("Error: The response from the Lineeye LA-5R device is wrong! The first byte should be 0x{0:02X}, but it is 0x{1:02X}!".format(cmd_header, response[0]))
+                    sys.exit(14)
+                else:
+                    print("LA-5R output status:")
+                    print("- PC7   : %s" % ('OFF' if response[1] & 0x01 else 'ON'))     # PC7 power is inverted!
+                    print("- AMC-L : %s" % ('ON' if response[1] & 0x02 else 'OFF'))
+                    print("- AMC-U : %s" % ('ON' if response[1] & 0x04 else 'OFF'))
+                    print("- SBIG  : %s" % ('ON' if response[1] & 0x08 else 'OFF'))
+                    print("- spare : %s" % ('ON' if response[1] & 0x10 else 'OFF'))
+
+            # Clean up the connection.
+            s.close()
+
+    except socket.timeout:
+        print("Error: Connection to {0:s} timed out.".format(ip_address))
+        sys.exit(11)
+    except Exception as e:
+        print("A network error occurred: {0}".format(e))
+        sys.exit(12)
 
 
 
@@ -115,6 +173,7 @@ def control_la5r_channel(ip_address, channel, turn_on, port=10003, show_status=T
             # Clean up the connection.
             s.close()
 
+    # Handle possible exceptions.
     except socket.timeout:
         print("Error: Connection to {0:s} timed out.".format(ip_address))
         sys.exit(11)
@@ -127,6 +186,7 @@ def control_la5r_channel(ip_address, channel, turn_on, port=10003, show_status=T
 # Show help.
 def print_help():
     print("Usage: power_la5r.py <component> <ON|OFF>")
+    print("       power_la5r.py status")
     print()
     print("List of components:")
     print("- PC7   : PC7 (DO1) - Caution: This will interrupt the power of PC7!")
@@ -142,6 +202,14 @@ def print_help():
 if __name__ == "__main__":
 
     # Evaluate command line arguments.
+    if len(sys.argv) == 2:
+        command = sys.argv[1].lower()
+        if command == "status":
+            status_la5r_channels(ip_address=LINEEYE_IP, port=LINEEYE_PORT)
+            sys.exit(0)
+        else:
+            print_help()
+            sys.exit(1)
     if len(sys.argv) != 3:
         print_help()
         sys.exit(1)
@@ -165,22 +233,22 @@ if __name__ == "__main__":
                 print("Operation aborted! Power of PC7 *not* turned off!")
                 sys.exit(2)
         turn_on_pc7 = not turn_on    # PC7 power is inverted!
-        control_la5r_channel(LINEEYE_IP, channel=1, turn_on=turn_on_pc7, show_status=True)
+        control_la5r_channel(ip_address=LINEEYE_IP, port=LINEEYE_PORT, channel=1, turn_on=turn_on_pc7, show_status=True)
     elif component.upper() == "AMC":
         if verbosity >= 2:
-            control_la5r_channel(LINEEYE_IP, channel=2, turn_on=turn_on, show_status=True)
+            control_la5r_channel(ip_address=LINEEYE_IP, port=LINEEYE_PORT, channel=2, turn_on=turn_on, show_status=True)
         else:
-            control_la5r_channel(LINEEYE_IP, channel=2, turn_on=turn_on, show_status=False)
+            control_la5r_channel(ip_address=LINEEYE_IP, port=LINEEYE_PORT, channel=2, turn_on=turn_on, show_status=False)
         time.sleep(0.1)
-        control_la5r_channel(LINEEYE_IP, channel=3, turn_on=turn_on, show_status=True)
+        control_la5r_channel(ip_address=LINEEYE_IP, port=LINEEYE_PORT, channel=3, turn_on=turn_on, show_status=True)
     elif component.upper() == "AMC-L":
-        control_la5r_channel(LINEEYE_IP, channel=2, turn_on=turn_on, show_status=True)
+        control_la5r_channel(ip_address=LINEEYE_IP, port=LINEEYE_PORT, channel=2, turn_on=turn_on, show_status=True)
     elif component.upper() == "AMC-U":
-        control_la5r_channel(LINEEYE_IP, channel=3, turn_on=turn_on, show_status=True)
+        control_la5r_channel(ip_address=LINEEYE_IP, port=LINEEYE_PORT, channel=3, turn_on=turn_on, show_status=True)
     elif component.upper() == "SBIG":
-        control_la5r_channel(LINEEYE_IP, channel=4, turn_on=turn_on, show_status=True)
+        control_la5r_channel(ip_address=LINEEYE_IP, port=LINEEYE_PORT, channel=4, turn_on=turn_on, show_status=True)
     elif component.lower() == "spare":
-        control_la5r_channel(LINEEYE_IP, channel=5, turn_on=turn_on, show_status=True)
+        control_la5r_channel(ip_address=LINEEYE_IP, port=LINEEYE_PORT, channel=5, turn_on=turn_on, show_status=True)
     else:
         print("Error: Component '{0:s}' not supported!".format(component))
         print()
