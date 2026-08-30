@@ -1,5 +1,6 @@
 //size of SBIG CCD pixel:  1 Pixel  = 2.28mm on the Camera-Lid ==> 1mm=0.44mm
 #define pixPerMM 0.44
+//#define LEGACY_POWER_SWITCH
 
 /*   0---------------> x
  *   |
@@ -2962,17 +2963,45 @@ void push_pwr(FL_OBJECT *obj, long m)
   }
 
   if (n == 0 || abs(n) > 8) {
+    #ifdef LEGACY_POWER_SWITCH
     sprintf(str, "./power.pl \n");
+    #else
+    sprintf(str, "./power_la5r_python2.py status \n");
+    system(str);
+    sprintf(str, "./power.pl \n");
+    #endif
   }
   else if (n > 0) {
+    #ifdef LEGACY_POWER_SWITCH
     sprintf(str, "./power.pl    -on=%1ld", n);
+    #else
+    if (abs(n) == PWR_AMC) {
+        sprintf(str, "./power_la5r_python2.py AMC ON \n");
+        system(str);
+    } else if (abs(n) == PWR_SBIG) {
+        sprintf(str, "./power_la5r_python2.py SBIG ON \n");
+        system(str);
+    }
+    sprintf(str, "./power.pl    -on=%1ld", n);
+    #endif
     power[n].request = 1;
 
     sprintf(lstr, "push ON1   %ld ", m);
     put_logfile(LOG_OK_, 0, lstr);
   }
   else {
+    #ifdef LEGACY_POWER_SWITCH
     sprintf(str, "./power.pl    -off=%1ld", -n);
+    #else
+    if (abs(n) == PWR_AMC) {
+        sprintf(str, "./power_la5r_python2.py AMC OFF \n");
+        system(str);
+    } else if (abs(n) == PWR_SBIG) {
+        sprintf(str, "./power_la5r_python2.py SBIG OFF \n");
+        system(str);
+    }
+    sprintf(str, "./power.pl    -off=%1ld", -n);
+    #endif
     power[-n].request = 0;
 
     if (n == -PWR_AMC) {  //we switch off AMC power ==>
