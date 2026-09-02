@@ -4,7 +4,7 @@
 # Auth: M. Fras, Electronics Division, MPI for Physics, Munich
 # Mod.: M. Fras, Electronics Division, MPI for Physics, Munich
 # Date: 03 Aug 2026
-# Rev.: 29 Aug 2026
+# Rev.: 02 Sep 2026
 #
 # Python script to switch on/off parts of the MAGIC I AMC using a Lineeye LA-5R
 # device.
@@ -63,7 +63,7 @@ def status_la5r_channels(ip_address, port=10003):
 
         # Send the command to the Lineeye LA-5R device.
         if verbosity >= 3:
-            print("Sending command '0x%s' to Lineeye LA-5R: Channel %d -> %s." % (payload_string.encode('hex').upper(), channel, 'ON' if turn_on else 'OFF'))
+            print("Sending command '0x%s' to Lineeye LA-5R." % (payload_string.encode('hex').upper()))
         client_socket.sendall(payload_string)
 
         # The Lineeye LA-5R device usually responds with a confirmation (echo of the status).
@@ -111,7 +111,7 @@ def control_la5r_channel(ip_address, channel, turn_on, port=10003, show_status=T
     :param turn_on: True to switch ON, False to switch OFF
     :param port: TCP port (Factory default is 10003)
     """
-    if not (1 <= channel <= 5):
+    if not 1 <= channel <= 5:
         print("Error: Channel must be between 1 and 5.")
         sys.exit(10)
 
@@ -232,15 +232,16 @@ if __name__ == "__main__":
         turn_on = True
     else:
         print("Error: Unknown power state: '%s'. Please specify either 'ON' or 'OFF'!" % (on_off))
+        sys.exit(2)
 
     # Evaluate component to be switched on/off.
     if component.upper() == "PC7":
         # For safety: Let user confirm power cut of PC7!
-        if turn_on == False:
+        if not turn_on:
             reply = raw_input("Do you really want to cut the power of PC7 (yes/no)? ")
             if reply.lower() != "yes":
                 print("Operation aborted! Power of PC7 *not* turned off!")
-                sys.exit(2)
+                sys.exit(3)
         turn_on_pc7 = not turn_on    # PC7 power is inverted!
         control_la5r_channel(ip_address=LINEEYE_IP, port=LINEEYE_PORT, channel=1, turn_on=turn_on_pc7, show_status=True)
     elif component.upper() == "AMC":
@@ -262,5 +263,5 @@ if __name__ == "__main__":
         print("Error: Component '%s' not supported!" % (component))
         print("")
         print_help()
-        sys.exit(3)
+        sys.exit(4)
 
