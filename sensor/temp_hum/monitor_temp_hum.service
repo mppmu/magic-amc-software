@@ -1,0 +1,14 @@
+[Unit]
+Description=Monitor script for temperature and humidity
+After=network.target
+
+[Service]
+Type=simple
+User=sensor
+Group=sensor
+WorkingDirectory=/dev/shm
+ExecStart=/usr/bin/python3 /usr/local/bin/monitor_temp_hum.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
